@@ -43,7 +43,6 @@
 
     <ui:LogMessage Level="Info" Message="[&quot;[Export Packages] Fetching package list from source (tenant-level)...&quot;]" DisplayName="Log: Start" />
 
-    <!-- Fetch package metadata (tenant-level, no folder context) -->
     <ui:InvokeWorkflowFile WorkflowFileName="Shared_OrchestratorApiCall.xaml" DisplayName="GET /odata/Processes">
       <ui:InvokeWorkflowFile.Arguments>
         <scg:Dictionary x:TypeArguments="x:String, Argument">
@@ -81,21 +80,6 @@ System.IO.File.WriteAllText(v_OutputPath,
 
     <ui:LogMessage Level="Info" Message="[&quot;[Export Packages] Saved metadata for &quot; &amp; Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson).Count.ToString() &amp; &quot; packages. Downloading .nupkg files...&quot;]" DisplayName="Log: Downloading" />
 
-    <!--
-      [REPLACE] Download each .nupkg file via the DownloadPackage endpoint.
-      The Orchestrator HTTP Request activity does not support binary downloads natively.
-      Use one of these approaches in UiPath Studio:
-
-      OPTION A - InvokeCode with HttpClient (shown below):
-        Endpoint: GET /odata/Processes/UiPath.Server.Configuration.OData.DownloadPackage(key='<PackageId>',version='<Version>')
-        Save binary response to Data/Packages/<PackageId>.<Version>.nupkg
-
-      OPTION B - PowerShell via InvokePowerShell activity:
-        Use Invoke-WebRequest or [System.Net.WebClient] with Authorization header
-
-      OPTION C - UiPath WebAPI HTTP Client activity (requires UiPath.WebAPI.Activities):
-        Set response type to Binary and save to file
-    -->
     <ui:InvokeCode DisplayName="[REPLACE] Download .nupkg Files">
       <ui:InvokeCode.Code>
         <![CDATA[

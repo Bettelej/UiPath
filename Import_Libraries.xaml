@@ -46,12 +46,6 @@
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Libraries")]</InArgument></Assign.Value>
     </Assign>
 
-    <!--
-      [REPLACE] Upload each library .nupkg to target.
-      IMPORTANT: Libraries use a DIFFERENT endpoint than Packages!
-      Endpoint: POST /odata/Libraries/UiPath.Server.Configuration.OData.UploadPackage
-      Content-Type: multipart/form-data
-    -->
     <ui:InvokeCode DisplayName="[REPLACE] Upload Library .nupkg Files">
       <ui:InvokeCode.Code>
         <![CDATA[

@@ -32,7 +32,6 @@
       <AssemblyReference>UiPath.System.Activities</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
-  <!-- Arguments -->
   <x:Members>
     <x:Property Name="in_BaseUrl" Type="InArgument(x:String)" />
     <x:Property Name="in_Token" Type="InArgument(x:String)" />
@@ -54,8 +53,6 @@
       <Variable x:TypeArguments="x:Boolean" Name="v_Success" Default="False" />
       <Variable x:TypeArguments="x:String" Name="v_LastError" Default="&quot;&quot;" />
     </Sequence.Variables>
-
-    <!-- Retry loop: up to 3 attempts -->
     <While DisplayName="Retry Loop (max 3 attempts)">
       <While.Condition>[v_RetryCount &lt; 3 AndAlso Not v_Success]</While.Condition>
       <Sequence DisplayName="Attempt API Call">
@@ -66,20 +63,7 @@
         <TryCatch DisplayName="TryCatch - API Attempt">
           <TryCatch.Try>
             <Sequence DisplayName="Execute HTTP Request">
-              <!--
-                [REPLACE] This InvokeCode block implements pagination and HTTP calls using
-                System.Net.Http.HttpClient. In production UiPath Studio you may replace this
-                with the built-in "HTTP Client" or "Orchestrator HTTP Request" activities for
-                better credential management and native retry support.
-
-                Behaviour:
-                  - GET requests: paginate via $top=100&$skip=N until no more items returned.
-                    Collects all items into a JArray and serialises to out_ResponseJson.
-                  - POST/PUT/DELETE: single call, returns raw response body in out_ResponseJson.
-                  - Sets out_StatusCode to the HTTP status of the last call.
-                  - X-UIPATH-OrganizationUnitId header added when in_FolderId is non-empty.
-              -->
-              <ui:InvokeCode DisplayName="[REPLACE] HTTP Request with Pagination">
+              <ui:InvokeCode DisplayName="HTTP Request with Pagination">
                 <ui:InvokeCode.Code>
                   <![CDATA[
 Dim httpClient As New System.Net.Http.HttpClient()
@@ -95,7 +79,6 @@ Dim lastResponseBody As String = ""
 Do While hasMore
     Dim url As String = in_BaseUrl.TrimEnd("/"c) & in_Endpoint
 
-    ' Append pagination parameters for GET requests
     If in_Method.ToUpper() = "GET" Then
         Dim separator As String = If(url.Contains("?"), "&", "?")
         url &= separator & "$top=" & top & "&$skip=" & skip
@@ -104,16 +87,13 @@ Do While hasMore
     Dim request As New System.Net.Http.HttpRequestMessage(
         New System.Net.Http.HttpMethod(in_Method.ToUpper()), url)
 
-    ' Set Authorization header
     request.Headers.TryAddWithoutValidation("Authorization", "Bearer " & in_Token)
     request.Headers.TryAddWithoutValidation("Accept", "application/json")
 
-    ' Set folder context header for folder-scoped calls
     If Not String.IsNullOrEmpty(in_FolderId) Then
         request.Headers.TryAddWithoutValidation("X-UIPATH-OrganizationUnitId", in_FolderId)
     End If
 
-    ' Set request body for POST/PUT
     If Not String.IsNullOrEmpty(in_RequestBody) AndAlso
        (in_Method.ToUpper() = "POST" OrElse in_Method.ToUpper() = "PUT") Then
         request.Content = New System.Net.Http.StringContent(
@@ -174,7 +154,6 @@ End If
                     <Assign.Value><InArgument x:TypeArguments="x:String">[apiEx.Message]</InArgument></Assign.Value>
                   </Assign>
                   <ui:LogMessage Level="Warn" Message="[&quot;[API] Attempt &quot; &amp; v_RetryCount.ToString() &amp; &quot; failed: &quot; &amp; v_LastError]" DisplayName="Log: Retry Warning" />
-                  <!-- Wait 5 seconds before retry (only if more retries remain) -->
                   <If DisplayName="If More Retries Remain">
                     <If.Condition>[v_RetryCount &lt; 3]</If.Condition>
                     <If.Then>

@@ -62,10 +62,8 @@
             <Variable x:TypeArguments="x:String" Name="v_Dummy" Default="&quot;&quot;" />
           </Sequence.Variables>
 
-          <!-- Step 0: Log start -->
           <ui:LogMessage Level="Info" Message="[&quot;[Migration] Starting Orchestrator migration. Loading configuration...&quot;]" DisplayName="Log: Start" />
 
-          <!-- Step 0a: Load MigrationConfig.json using Assign activities -->
           <Assign DisplayName="Read MigrationConfig.json">
             <Assign.To><OutArgument x:TypeArguments="x:String">[v_ConfigJson]</OutArgument></Assign.To>
             <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText("MigrationConfig.json")]</InArgument></Assign.Value>
@@ -111,7 +109,6 @@
             <Assign.Value><InArgument x:TypeArguments="x:String">[JObject.Parse(v_ConfigJson)("DataPath").ToString()]</InArgument></Assign.Value>
           </Assign>
 
-          <!-- Step 0b: Create Data directories using Assign side-effects -->
           <Assign DisplayName="Create DataPath directory">
             <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
             <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Directory.CreateDirectory(v_DataPath).FullName]</InArgument></Assign.Value>
@@ -125,7 +122,6 @@
             <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Directory.CreateDirectory(System.IO.Path.Combine(v_DataPath, "Libraries")).FullName]</InArgument></Assign.Value>
           </Assign>
 
-          <!-- Step 0c: Authenticate against Source Orchestrator -->
           <ui:LogMessage Level="Info" Message="[&quot;[Migration] Authenticating against source Orchestrator...&quot;]" DisplayName="Log: Auth Source" />
           <ui:InvokeWorkflowFile WorkflowFileName="Auth_Source.xaml" DisplayName="Get Source Token">
             <ui:InvokeWorkflowFile.Arguments>
@@ -140,7 +136,6 @@
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
-          <!-- Step 0d: Authenticate against Target Orchestrator (OAuth) -->
           <ui:LogMessage Level="Info" Message="[&quot;[Migration] Authenticating against target Orchestrator (OAuth)...&quot;]" DisplayName="Log: Auth Target" />
           <ui:InvokeWorkflowFile WorkflowFileName="Auth_Target.xaml" DisplayName="Get Target Token (OAuth)">
             <ui:InvokeWorkflowFile.Arguments>
@@ -155,7 +150,6 @@
 
           <ui:LogMessage Level="Info" Message="[&quot;[Migration] Authentication successful. Starting EXPORT phase...&quot;]" DisplayName="Log: Export Phase Start" />
 
-          <!-- EXPORT PHASE -->
           <ui:InvokeWorkflowFile WorkflowFileName="Export_Folders.xaml" DisplayName="Step 1 - Export Folders">
             <ui:InvokeWorkflowFile.Arguments>
               <scg:Dictionary x:TypeArguments="x:String, Argument">
@@ -238,7 +232,6 @@
 
           <ui:LogMessage Level="Info" Message="[&quot;[Migration] EXPORT phase complete. Starting IMPORT phase...&quot;]" DisplayName="Log: Import Phase Start" />
 
-          <!-- IMPORT PHASE -->
           <ui:InvokeWorkflowFile WorkflowFileName="Import_Folders.xaml" DisplayName="Step 1 - Import Folders">
             <ui:InvokeWorkflowFile.Arguments>
               <scg:Dictionary x:TypeArguments="x:String, Argument">

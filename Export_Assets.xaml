@@ -45,7 +45,6 @@
 
     <ui:LogMessage Level="Info" Message="[&quot;[Export Assets] Reading folder list and fetching assets per folder...&quot;]" DisplayName="Log: Start" />
 
-    <!-- Read folder list -->
     <Assign DisplayName="Set Folders Path">
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_FoldersPath]</OutArgument></Assign.To>
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Export_Folders.json")]</InArgument></Assign.Value>
@@ -56,7 +55,6 @@
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <!-- Iterate each folder and fetch assets -->
     <ui:InvokeCode DisplayName="Fetch Assets Per Folder">
       <ui:InvokeCode.Code>
         <![CDATA[

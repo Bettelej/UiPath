@@ -80,12 +80,6 @@ System.IO.File.WriteAllText(v_OutputPath,
 
     <ui:LogMessage Level="Info" Message="[&quot;[Export Libraries] Downloading .nupkg files to &quot; &amp; v_LibrariesDir]" DisplayName="Log: Downloading" />
 
-    <!--
-      [REPLACE] Download each library .nupkg via the Libraries DownloadPackage endpoint.
-      Endpoint: POST /odata/Libraries/UiPath.Server.Configuration.OData.DownloadPackage
-      Body: { "packageIdentifier": "<Id>", "version": "<Version>" }
-      Or: GET /odata/Libraries/UiPath.Server.Configuration.OData.DownloadPackage(key='<Id>',version='<Version>')
-    -->
     <ui:InvokeCode DisplayName="[REPLACE] Download Library .nupkg Files">
       <ui:InvokeCode.Code>
         <![CDATA[

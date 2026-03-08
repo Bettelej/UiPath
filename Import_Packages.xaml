@@ -46,16 +46,6 @@
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Packages")]</InArgument></Assign.Value>
     </Assign>
 
-    <!--
-      [REPLACE] Upload each .nupkg to target via multipart/form-data POST.
-      Endpoint: POST /odata/Processes/UiPath.Server.Configuration.OData.UploadPackage
-      Content-Type: multipart/form-data
-      Body: file field named "file" containing the .nupkg binary
-
-      OPTION A - InvokeCode with HttpClient MultipartFormDataContent (shown below):
-      OPTION B - PowerShell via InvokePowerShell with Invoke-RestMethod -Form @{file=...}
-      OPTION C - UiPath WebAPI HTTP Client activity with multipart support
-    -->
     <ui:InvokeCode DisplayName="[REPLACE] Upload Package .nupkg Files">
       <ui:InvokeCode.Code>
         <![CDATA[
