@@ -40,7 +40,7 @@
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Export Queues] Reading folder list and fetching queue definitions per folder...&quot;" DisplayName="Log: Start" />
 
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Read Export_Folders.json">
+    <ui:InvokeCode DisplayName="Read Export_Folders.json">
       <ui:InvokeCode.Code>
         <![CDATA[
 v_FoldersJson = System.IO.File.ReadAllText(
@@ -50,7 +50,7 @@ v_FoldersJson = System.IO.File.ReadAllText(
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Fetch Queue Definitions Per Folder">
+    <ui:InvokeCode DisplayName="Fetch Queue Definitions Per Folder">
       <ui:InvokeCode.Code>
         <![CDATA[
 Dim folders As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_FoldersJson)
@@ -111,7 +111,7 @@ v_AllQueuesJson = allQueues.ToString(Newtonsoft.Json.Formatting.Indented)
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Export_Queues.json")]</InArgument></Assign.Value>
     </Assign>
 
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Save Export_Queues.json">
+    <ui:InvokeCode DisplayName="Save Export_Queues.json">
       <ui:InvokeCode.Code>
         <![CDATA[System.IO.File.WriteAllText(v_OutputPath, v_AllQueuesJson, System.Text.Encoding.UTF8)]]>
       </ui:InvokeCode.Code>

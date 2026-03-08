@@ -68,7 +68,7 @@
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Packages")]</InArgument></Assign.Value>
     </Assign>
 
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Save Export_Packages.json">
+    <ui:InvokeCode DisplayName="Save Export_Packages.json">
       <ui:InvokeCode.Code>
         <![CDATA[
 Dim packages As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson)
@@ -96,7 +96,7 @@ System.IO.File.WriteAllText(v_OutputPath,
       OPTION C - UiPath WebAPI HTTP Client activity (requires UiPath.WebAPI.Activities):
         Set response type to Binary and save to file
     -->
-    <ui:InvokeCode Language="VisualBasic" DisplayName="[REPLACE] Download .nupkg Files">
+    <ui:InvokeCode DisplayName="[REPLACE] Download .nupkg Files">
       <ui:InvokeCode.Code>
         <![CDATA[
 Dim packages As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson)

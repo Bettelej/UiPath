@@ -56,7 +56,7 @@
       OPTION B - PowerShell via InvokePowerShell with Invoke-RestMethod -Form @{file=...}
       OPTION C - UiPath WebAPI HTTP Client activity with multipart support
     -->
-    <ui:InvokeCode Language="VisualBasic" DisplayName="[REPLACE] Upload Package .nupkg Files">
+    <ui:InvokeCode DisplayName="[REPLACE] Upload Package .nupkg Files">
       <ui:InvokeCode.Code>
         <![CDATA[
 If Not System.IO.Directory.Exists(v_PackagesDir) Then

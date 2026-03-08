@@ -52,7 +52,7 @@
       Endpoint: POST /odata/Libraries/UiPath.Server.Configuration.OData.UploadPackage
       Content-Type: multipart/form-data
     -->
-    <ui:InvokeCode Language="VisualBasic" DisplayName="[REPLACE] Upload Library .nupkg Files">
+    <ui:InvokeCode DisplayName="[REPLACE] Upload Library .nupkg Files">
       <ui:InvokeCode.Code>
         <![CDATA[
 If Not System.IO.Directory.Exists(v_LibrariesDir) Then

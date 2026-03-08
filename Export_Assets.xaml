@@ -50,14 +50,14 @@
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_FoldersPath]</OutArgument></Assign.To>
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Export_Folders.json")]</InArgument></Assign.Value>
     </Assign>
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Read Export_Folders.json">
+    <ui:InvokeCode DisplayName="Read Export_Folders.json">
       <ui:InvokeCode.Code>
         <![CDATA[v_FoldersJson = System.IO.File.ReadAllText(v_FoldersPath, System.Text.Encoding.UTF8)]]>
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <!-- Iterate each folder and fetch assets -->
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Fetch Assets Per Folder">
+    <ui:InvokeCode DisplayName="Fetch Assets Per Folder">
       <ui:InvokeCode.Code>
         <![CDATA[
 Dim folders As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_FoldersJson)
@@ -124,7 +124,7 @@ v_AllAssetsJson = allAssets.ToString(Newtonsoft.Json.Formatting.Indented)
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Export_Assets.json")]</InArgument></Assign.Value>
     </Assign>
 
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Save Export_Assets.json">
+    <ui:InvokeCode DisplayName="Save Export_Assets.json">
       <ui:InvokeCode.Code>
         <![CDATA[System.IO.File.WriteAllText(v_OutputPath, v_AllAssetsJson, System.Text.Encoding.UTF8)]]>
       </ui:InvokeCode.Code>

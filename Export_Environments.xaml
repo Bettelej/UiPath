@@ -60,7 +60,7 @@
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Export_Environments.json")]</InArgument></Assign.Value>
     </Assign>
 
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Save Export_Environments.json">
+    <ui:InvokeCode DisplayName="Save Export_Environments.json">
       <ui:InvokeCode.Code>
         <![CDATA[
 Dim envs As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson)

@@ -44,7 +44,7 @@
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Folders] Creating modern folders in target Orchestrator...&quot;" DisplayName="Log: Start" />
 
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Read Export_Folders.json">
+    <ui:InvokeCode DisplayName="Read Export_Folders.json">
       <ui:InvokeCode.Code>
         <![CDATA[
 v_FoldersJson = System.IO.File.ReadAllText(
@@ -59,7 +59,7 @@ v_FoldersJson = System.IO.File.ReadAllText(
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "FolderIdMapping.json")]</InArgument></Assign.Value>
     </Assign>
 
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Create Modern Folders and Save Mapping">
+    <ui:InvokeCode DisplayName="Create Modern Folders and Save Mapping">
       <ui:InvokeCode.Code>
         <![CDATA[
 Dim srcFolders As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_FoldersJson)
@@ -168,7 +168,7 @@ Console.WriteLine("[Import Folders] Created: " & created & ", Skipped: " & skipp
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Save FolderIdMapping.json">
+    <ui:InvokeCode DisplayName="Save FolderIdMapping.json">
       <ui:InvokeCode.Code>
         <![CDATA[System.IO.File.WriteAllText(v_MappingPath, v_FolderMappingJson, System.Text.Encoding.UTF8)]]>
       </ui:InvokeCode.Code>

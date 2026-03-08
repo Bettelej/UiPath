@@ -42,7 +42,7 @@
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Queues] Creating queue definitions in target folders...&quot;" DisplayName="Log: Start" />
 
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Read Input Files">
+    <ui:InvokeCode DisplayName="Read Input Files">
       <ui:InvokeCode.Code>
         <![CDATA[
 v_QueuesJson = System.IO.File.ReadAllText(
@@ -53,7 +53,7 @@ v_FolderMappingJson = System.IO.File.ReadAllText(
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Create Queue Definitions in Target">
+    <ui:InvokeCode DisplayName="Create Queue Definitions in Target">
       <ui:InvokeCode.Code>
         <![CDATA[
 Dim queues As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_QueuesJson)
