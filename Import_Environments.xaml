@@ -43,7 +43,7 @@
       <Variable x:TypeArguments="x:String" Name="v_EnvMappingPath" Default="&quot;&quot;" />
     </Sequence.Variables>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Environments] Converting classic environments to modern subfolders...&quot;" DisplayName="Log: Start" />
+    <ui:LogMessage Level="Info" Message="&quot;[Import Environments] Converting classic environments to modern subfolders...&quot;" DisplayName="Log: Start" />
 
     <ui:InvokeCode DisplayName="Read Input Files">
       <ui:InvokeCode.Code>
@@ -155,6 +155,6 @@ Console.WriteLine("[Import Environments] Created: " & created & ", Skipped: " & 
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="[&quot;[Import Environments] EnvToSubfolderMapping.json saved to &quot; &amp; v_EnvMappingPath]" DisplayName="Log: Complete" />
+    <ui:LogMessage Level="Info" Message="[&quot;[Import Environments] EnvToSubfolderMapping.json saved to &quot; &amp; v_EnvMappingPath]" DisplayName="Log: Complete" />
   </Sequence>
 </Activity>

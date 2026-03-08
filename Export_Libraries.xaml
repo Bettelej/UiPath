@@ -41,7 +41,7 @@
       <Variable x:TypeArguments="x:String" Name="v_LibrariesDir" Default="&quot;&quot;" />
     </Sequence.Variables>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Export Libraries] Fetching library list from source (tenant-level)...&quot;" DisplayName="Log: Start" />
+    <ui:LogMessage Level="Info" Message="&quot;[Export Libraries] Fetching library list from source (tenant-level)...&quot;" DisplayName="Log: Start" />
 
     <ui:InvokeWorkflowFile WorkflowFileName="Shared_OrchestratorApiCall.xaml" DisplayName="GET /odata/Libraries">
       <ui:InvokeWorkflowFile.Arguments>
@@ -78,7 +78,7 @@ System.IO.File.WriteAllText(v_OutputPath,
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="[&quot;[Export Libraries] Downloading .nupkg files to &quot; &amp; v_LibrariesDir]" DisplayName="Log: Downloading" />
+    <ui:LogMessage Level="Info" Message="[&quot;[Export Libraries] Downloading .nupkg files to &quot; &amp; v_LibrariesDir]" DisplayName="Log: Downloading" />
 
     <!--
       [REPLACE] Download each library .nupkg via the Libraries DownloadPackage endpoint.
@@ -129,6 +129,6 @@ Console.WriteLine("[Export Libraries] Downloaded: " & downloaded & ", Failed: " 
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="[&quot;[Export Libraries] Complete. Libraries saved to &quot; &amp; v_LibrariesDir]" DisplayName="Log: Complete" />
+    <ui:LogMessage Level="Info" Message="[&quot;[Export Libraries] Complete. Libraries saved to &quot; &amp; v_LibrariesDir]" DisplayName="Log: Complete" />
   </Sequence>
 </Activity>

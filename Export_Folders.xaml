@@ -38,7 +38,7 @@
       <Variable x:TypeArguments="x:String" Name="v_OutputPath" Default="&quot;&quot;" />
     </Sequence.Variables>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Export Folders] Fetching all folders from source Orchestrator...&quot;" DisplayName="Log: Start" />
+    <ui:LogMessage Level="Info" Message="&quot;[Export Folders] Fetching all folders from source Orchestrator...&quot;" DisplayName="Log: Start" />
 
     <ui:InvokeWorkflowFile WorkflowFileName="Shared_OrchestratorApiCall.xaml" DisplayName="GET /odata/Folders">
       <ui:InvokeWorkflowFile.Arguments>
@@ -72,6 +72,6 @@ System.IO.File.WriteAllText(v_OutputPath,
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="[&quot;[Export Folders] Saved &quot; &amp; Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson).Count.ToString() &amp; &quot; folders to &quot; &amp; v_OutputPath]" DisplayName="Log: Complete" />
+    <ui:LogMessage Level="Info" Message="[&quot;[Export Folders] Saved &quot; &amp; Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson).Count.ToString() &amp; &quot; folders to &quot; &amp; v_OutputPath]" DisplayName="Log: Complete" />
   </Sequence>
 </Activity>

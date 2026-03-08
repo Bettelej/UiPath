@@ -40,26 +40,28 @@
       </scg:Dictionary>
     </sap:WorkflowViewStateService.ViewState>
     <Sequence.Variables>
-      <Variable x:TypeArguments="x:String" Name="v_ConfigJson" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_SourceBaseUrl" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_SourceToken" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_SourceAuthType" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_SourceApiKey" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_SourceUsername" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_SourcePassword" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_TargetBaseUrl" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_TargetToken" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_TargetClientId" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_TargetClientSecret" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_TargetIdentityUrl" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_DataPath" Default="&quot;Data&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_ErrorMessage" Default="&quot;&quot;" />
     </Sequence.Variables>
     <TryCatch DisplayName="Migration TryCatch">
       <TryCatch.Try>
         <Sequence DisplayName="Migration Steps">
+          <Sequence.Variables>
+            <Variable x:TypeArguments="x:String" Name="v_ConfigJson" Default="&quot;&quot;" />
+            <Variable x:TypeArguments="x:String" Name="v_SourceBaseUrl" Default="&quot;&quot;" />
+            <Variable x:TypeArguments="x:String" Name="v_SourceToken" Default="&quot;&quot;" />
+            <Variable x:TypeArguments="x:String" Name="v_SourceAuthType" Default="&quot;&quot;" />
+            <Variable x:TypeArguments="x:String" Name="v_SourceApiKey" Default="&quot;&quot;" />
+            <Variable x:TypeArguments="x:String" Name="v_SourceUsername" Default="&quot;&quot;" />
+            <Variable x:TypeArguments="x:String" Name="v_SourcePassword" Default="&quot;&quot;" />
+            <Variable x:TypeArguments="x:String" Name="v_TargetBaseUrl" Default="&quot;&quot;" />
+            <Variable x:TypeArguments="x:String" Name="v_TargetToken" Default="&quot;&quot;" />
+            <Variable x:TypeArguments="x:String" Name="v_TargetClientId" Default="&quot;&quot;" />
+            <Variable x:TypeArguments="x:String" Name="v_TargetClientSecret" Default="&quot;&quot;" />
+            <Variable x:TypeArguments="x:String" Name="v_TargetIdentityUrl" Default="&quot;&quot;" />
+            <Variable x:TypeArguments="x:String" Name="v_DataPath" Default="&quot;Data&quot;" />
+          </Sequence.Variables>
           <!-- Step 0: Load configuration -->
-          <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] Starting Orchestrator migration. Loading configuration...&quot;" DisplayName="Log: Start" />
+          <ui:LogMessage Level="Info" Message="&quot;[Migration] Starting Orchestrator migration. Loading configuration...&quot;" DisplayName="Log: Start" />
           <ui:InvokeCode DisplayName="Load MigrationConfig.json">
             <ui:InvokeCode.Code>
               <![CDATA[
@@ -93,7 +95,7 @@ System.IO.Directory.CreateDirectory(System.IO.Path.Combine(v_DataPath, "Librarie
           </ui:InvokeCode>
 
           <!-- Step 0c: Authenticate against Source Orchestrator -->
-          <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] Authenticating against source Orchestrator...&quot;" DisplayName="Log: Auth Source" />
+          <ui:LogMessage Level="Info" Message="&quot;[Migration] Authenticating against source Orchestrator...&quot;" DisplayName="Log: Auth Source" />
           <ui:InvokeCode DisplayName="Get Source Token">
             <ui:InvokeCode.Code>
               <![CDATA[
@@ -118,7 +120,7 @@ End If
           </ui:InvokeCode>
 
           <!-- Step 0d: Authenticate against Target Orchestrator (OAuth) -->
-          <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] Authenticating against target Orchestrator (OAuth)...&quot;" DisplayName="Log: Auth Target" />
+          <ui:LogMessage Level="Info" Message="&quot;[Migration] Authenticating against target Orchestrator (OAuth)...&quot;" DisplayName="Log: Auth Target" />
           <ui:InvokeCode DisplayName="Get Target Token (OAuth)">
             <ui:InvokeCode.Code>
               <![CDATA[
@@ -139,7 +141,7 @@ v_TargetToken = respJson("access_token").ToString()
             </ui:InvokeCode.Code>
           </ui:InvokeCode>
 
-          <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] Authentication successful. Starting EXPORT phase...&quot;" DisplayName="Log: Export Phase Start" />
+          <ui:LogMessage Level="Info" Message="&quot;[Migration] Authentication successful. Starting EXPORT phase...&quot;" DisplayName="Log: Export Phase Start" />
 
           <!-- EXPORT PHASE -->
           <ui:InvokeWorkflowFile WorkflowFileName="Export_Folders.xaml" DisplayName="Step 1 - Export Folders">
@@ -222,7 +224,7 @@ v_TargetToken = respJson("access_token").ToString()
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
-          <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] EXPORT phase complete. Starting IMPORT phase...&quot;" DisplayName="Log: Import Phase Start" />
+          <ui:LogMessage Level="Info" Message="&quot;[Migration] EXPORT phase complete. Starting IMPORT phase...&quot;" DisplayName="Log: Import Phase Start" />
 
           <!-- IMPORT PHASE -->
           <ui:InvokeWorkflowFile WorkflowFileName="Import_Folders.xaml" DisplayName="Step 1 - Import Folders">
@@ -307,8 +309,8 @@ v_TargetToken = respJson("access_token").ToString()
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
-          <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] IMPORT phase complete. Migration finished successfully!&quot;" DisplayName="Log: Migration Complete" />
-          <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] IMPORTANT: Manual steps required - see CredentialReport_ManualAction.json and enable triggers manually.&quot;" DisplayName="Log: Manual Steps Reminder" />
+          <ui:LogMessage Level="Info" Message="&quot;[Migration] IMPORT phase complete. Migration finished successfully!&quot;" DisplayName="Log: Migration Complete" />
+          <ui:LogMessage Level="Info" Message="&quot;[Migration] IMPORTANT: Manual steps required - see CredentialReport_ManualAction.json and enable triggers manually.&quot;" DisplayName="Log: Manual Steps Reminder" />
         </Sequence>
       </TryCatch.Try>
       <TryCatch.Catches>
@@ -322,7 +324,7 @@ v_TargetToken = respJson("access_token").ToString()
                 <Assign.To><OutArgument x:TypeArguments="x:String">[v_ErrorMessage]</OutArgument></Assign.To>
                 <Assign.Value><InArgument x:TypeArguments="x:String">[migrationException.Message]</InArgument></Assign.Value>
               </Assign>
-              <ui:LogMessage Level="[UiPath.Core.LogLevel.Error]" Message="[&quot;[Migration] FATAL ERROR: &quot; &amp; v_ErrorMessage]" DisplayName="Log: Fatal Error" />
+              <ui:LogMessage Level="Error" Message="[&quot;[Migration] FATAL ERROR: &quot; &amp; v_ErrorMessage]" DisplayName="Log: Fatal Error" />
               <Rethrow />
             </Sequence>
           </ActivityAction>

@@ -43,7 +43,7 @@
       <Variable x:TypeArguments="x:String" Name="v_AllAssetsJson" Default="&quot;[]&quot;" />
     </Sequence.Variables>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Export Assets] Reading folder list and fetching assets per folder...&quot;" DisplayName="Log: Start" />
+    <ui:LogMessage Level="Info" Message="&quot;[Export Assets] Reading folder list and fetching assets per folder...&quot;" DisplayName="Log: Start" />
 
     <!-- Read folder list -->
     <Assign DisplayName="Set Folders Path">
@@ -130,6 +130,6 @@ v_AllAssetsJson = allAssets.ToString(Newtonsoft.Json.Formatting.Indented)
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="[&quot;[Export Assets] Saved &quot; &amp; Newtonsoft.Json.Linq.JArray.Parse(v_AllAssetsJson).Count.ToString() &amp; &quot; assets to &quot; &amp; v_OutputPath]" DisplayName="Log: Complete" />
+    <ui:LogMessage Level="Info" Message="[&quot;[Export Assets] Saved &quot; &amp; Newtonsoft.Json.Linq.JArray.Parse(v_AllAssetsJson).Count.ToString() &amp; &quot; assets to &quot; &amp; v_OutputPath]" DisplayName="Log: Complete" />
   </Sequence>
 </Activity>

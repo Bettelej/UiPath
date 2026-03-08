@@ -41,7 +41,7 @@
       <Variable x:TypeArguments="x:String" Name="v_ReleaseKeyMappingJson" Default="&quot;{}&quot;" />
     </Sequence.Variables>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Processes] Creating releases (process-package bindings) in target folders...&quot;" DisplayName="Log: Start" />
+    <ui:LogMessage Level="Info" Message="&quot;[Import Processes] Creating releases (process-package bindings) in target folders...&quot;" DisplayName="Log: Start" />
 
     <ui:InvokeCode DisplayName="Read Input Files">
       <ui:InvokeCode.Code>
@@ -151,6 +151,6 @@ System.IO.File.WriteAllText(mappingPath, v_ReleaseKeyMappingJson, System.Text.En
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Processes] Releases import complete. ReleaseKeyMapping.json saved.&quot;" DisplayName="Log: Complete" />
+    <ui:LogMessage Level="Info" Message="&quot;[Import Processes] Releases import complete. ReleaseKeyMapping.json saved.&quot;" DisplayName="Log: Complete" />
   </Sequence>
 </Activity>

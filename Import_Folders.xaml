@@ -42,7 +42,7 @@
       <Variable x:TypeArguments="x:String" Name="v_FolderMappingJson" Default="&quot;{}&quot;" />
     </Sequence.Variables>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Folders] Creating modern folders in target Orchestrator...&quot;" DisplayName="Log: Start" />
+    <ui:LogMessage Level="Info" Message="&quot;[Import Folders] Creating modern folders in target Orchestrator...&quot;" DisplayName="Log: Start" />
 
     <ui:InvokeCode DisplayName="Read Export_Folders.json">
       <ui:InvokeCode.Code>
@@ -174,6 +174,6 @@ Console.WriteLine("[Import Folders] Created: " & created & ", Skipped: " & skipp
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="[&quot;[Import Folders] FolderIdMapping.json saved to &quot; &amp; v_MappingPath]" DisplayName="Log: Complete" />
+    <ui:LogMessage Level="Info" Message="[&quot;[Import Folders] FolderIdMapping.json saved to &quot; &amp; v_MappingPath]" DisplayName="Log: Complete" />
   </Sequence>
 </Activity>

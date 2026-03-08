@@ -173,7 +173,7 @@ End If
                     <Assign.To><OutArgument x:TypeArguments="x:String">[v_LastError]</OutArgument></Assign.To>
                     <Assign.Value><InArgument x:TypeArguments="x:String">[apiEx.Message]</InArgument></Assign.Value>
                   </Assign>
-                  <ui:LogMessage Level="[UiPath.Core.LogLevel.Warn]" Message="[&quot;[API] Attempt &quot; &amp; v_RetryCount.ToString() &amp; &quot; failed: &quot; &amp; v_LastError]" DisplayName="Log: Retry Warning" />
+                  <ui:LogMessage Level="Warn" Message="[&quot;[API] Attempt &quot; &amp; v_RetryCount.ToString() &amp; &quot; failed: &quot; &amp; v_LastError]" DisplayName="Log: Retry Warning" />
                   <!-- Wait 5 seconds before retry (only if more retries remain) -->
                   <If DisplayName="If More Retries Remain">
                     <If.Condition>[v_RetryCount &lt; 3]</If.Condition>

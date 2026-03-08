@@ -41,7 +41,7 @@
       <Variable x:TypeArguments="x:String" Name="v_PackagesDir" Default="&quot;&quot;" />
     </Sequence.Variables>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Export Packages] Fetching package list from source (tenant-level)...&quot;" DisplayName="Log: Start" />
+    <ui:LogMessage Level="Info" Message="&quot;[Export Packages] Fetching package list from source (tenant-level)...&quot;" DisplayName="Log: Start" />
 
     <!-- Fetch package metadata (tenant-level, no folder context) -->
     <ui:InvokeWorkflowFile WorkflowFileName="Shared_OrchestratorApiCall.xaml" DisplayName="GET /odata/Processes">
@@ -79,7 +79,7 @@ System.IO.File.WriteAllText(v_OutputPath,
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="[&quot;[Export Packages] Saved metadata for &quot; &amp; Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson).Count.ToString() &amp; &quot; packages. Downloading .nupkg files...&quot;]" DisplayName="Log: Downloading" />
+    <ui:LogMessage Level="Info" Message="[&quot;[Export Packages] Saved metadata for &quot; &amp; Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson).Count.ToString() &amp; &quot; packages. Downloading .nupkg files...&quot;]" DisplayName="Log: Downloading" />
 
     <!--
       [REPLACE] Download each .nupkg file via the DownloadPackage endpoint.
@@ -141,6 +141,6 @@ Console.WriteLine("[Export Packages] Downloaded: " & downloaded & ", Failed: " &
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="[&quot;[Export Packages] Complete. Packages saved to &quot; &amp; v_PackagesDir]" DisplayName="Log: Complete" />
+    <ui:LogMessage Level="Info" Message="[&quot;[Export Packages] Complete. Packages saved to &quot; &amp; v_PackagesDir]" DisplayName="Log: Complete" />
   </Sequence>
 </Activity>

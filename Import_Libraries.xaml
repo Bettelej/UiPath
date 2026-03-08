@@ -39,7 +39,7 @@
       <Variable x:TypeArguments="x:String" Name="v_LibrariesDir" Default="&quot;&quot;" />
     </Sequence.Variables>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Libraries] Uploading library .nupkg files to target Orchestrator...&quot;" DisplayName="Log: Start" />
+    <ui:LogMessage Level="Info" Message="&quot;[Import Libraries] Uploading library .nupkg files to target Orchestrator...&quot;" DisplayName="Log: Start" />
 
     <Assign DisplayName="Set Libraries Dir">
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_LibrariesDir]</OutArgument></Assign.To>
@@ -110,6 +110,6 @@ Console.WriteLine("[Import Libraries] Uploaded: " & uploaded & ", Failed: " & fa
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Libraries] Library upload complete.&quot;" DisplayName="Log: Complete" />
+    <ui:LogMessage Level="Info" Message="&quot;[Import Libraries] Library upload complete.&quot;" DisplayName="Log: Complete" />
   </Sequence>
 </Activity>
