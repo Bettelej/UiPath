@@ -38,7 +38,7 @@
       <Variable x:TypeArguments="x:String" Name="v_AllTriggersJson" Default="&quot;[]&quot;" />
     </Sequence.Variables>
 
-    <ui:LogMessage Level="Info" Message="&quot;[Export Triggers] Reading folder list and fetching process schedules per folder...&quot;" DisplayName="Log: Start" />
+    <ui:LogMessage Level="Info" Message="[&quot;[Export Triggers] Reading folder list and fetching process schedules per folder...&quot;]" DisplayName="Log: Start" />
 
     <ui:InvokeCode DisplayName="Read Export_Folders.json">
       <ui:InvokeCode.Code>
