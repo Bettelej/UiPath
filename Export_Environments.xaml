@@ -11,6 +11,7 @@
     <sco:Collection x:TypeArguments="x:String">
       <x:String>System</x:String>
       <x:String>System.IO</x:String>
+      <x:String>System.Text</x:String>
       <x:String>System.Collections.Generic</x:String>
       <x:String>Newtonsoft.Json</x:String>
       <x:String>Newtonsoft.Json.Linq</x:String>
@@ -36,6 +37,7 @@
       <Variable x:TypeArguments="x:String" Name="v_ResponseJson" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:Int32" Name="v_StatusCode" Default="0" />
       <Variable x:TypeArguments="x:String" Name="v_OutputPath" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_Dummy" Default="&quot;&quot;" />
     </Sequence.Variables>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Export Environments] Fetching all environments (with robot assignments) from source...&quot;]" DisplayName="Log: Start" />
@@ -60,16 +62,15 @@
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Export_Environments.json")]</InArgument></Assign.Value>
     </Assign>
 
-    <ui:InvokeCode DisplayName="Save Export_Environments.json">
-      <ui:InvokeCode.Code>
-        <![CDATA[
-Dim envs As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson)
-System.IO.File.WriteAllText(v_OutputPath,
-    envs.ToString(Newtonsoft.Json.Formatting.Indented),
-    System.Text.Encoding.UTF8)
-        ]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
+    <Assign DisplayName="Save Export_Environments.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">(Function()
+    System.IO.File.WriteAllText(v_OutputPath, JArray.Parse(v_ResponseJson).ToString(Formatting.Indented), System.Text.Encoding.UTF8)
+    Return ""
+End Function)()</InArgument>
+      </Assign.Value>
+    </Assign>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Export Environments] Saved &quot; &amp; Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson).Count.ToString() &amp; &quot; environments to &quot; &amp; v_OutputPath]" DisplayName="Log: Complete" />
   </Sequence>

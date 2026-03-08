@@ -11,6 +11,8 @@
     <sco:Collection x:TypeArguments="x:String">
       <x:String>System</x:String>
       <x:String>System.IO</x:String>
+      <x:String>System.Text</x:String>
+      <x:String>System.Net.Http</x:String>
       <x:String>System.Collections.Generic</x:String>
       <x:String>Newtonsoft.Json</x:String>
       <x:String>Newtonsoft.Json.Linq</x:String>
@@ -22,8 +24,10 @@
       <AssemblyReference>mscorlib</AssemblyReference>
       <AssemblyReference>System</AssemblyReference>
       <AssemblyReference>System.Core</AssemblyReference>
+      <AssemblyReference>System.Net.Http</AssemblyReference>
       <AssemblyReference>Newtonsoft.Json</AssemblyReference>
       <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+      <AssemblyReference>System.Private.Uri</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
   <x:Members>
@@ -36,44 +40,41 @@
       <Variable x:TypeArguments="x:String" Name="v_FoldersJson" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_OutputPath" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_AllQueuesJson" Default="&quot;[]&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_Dummy" Default="&quot;&quot;" />
     </Sequence.Variables>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Export Queues] Reading folder list and fetching queue definitions per folder...&quot;]" DisplayName="Log: Start" />
 
-    <ui:InvokeCode DisplayName="Read Export_Folders.json">
-      <ui:InvokeCode.Code>
-        <![CDATA[
-v_FoldersJson = System.IO.File.ReadAllText(
-    System.IO.Path.Combine(in_DataPath, "Export_Folders.json"),
-    System.Text.Encoding.UTF8)
-        ]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
+    <Assign DisplayName="Read Export_Folders.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_FoldersJson]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText(System.IO.Path.Combine(in_DataPath, "Export_Folders.json"), System.Text.Encoding.UTF8)]</InArgument></Assign.Value>
+    </Assign>
 
-    <ui:InvokeCode DisplayName="Fetch Queue Definitions Per Folder">
-      <ui:InvokeCode.Code>
-        <![CDATA[
-Dim folders As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_FoldersJson)
-Dim allQueues As New Newtonsoft.Json.Linq.JArray()
+    <Assign DisplayName="Fetch Queue Definitions Per Folder">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_AllQueuesJson]</OutArgument></Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">(Function()
+Dim folders As JArray = JArray.Parse(v_FoldersJson)
+Dim allItems As New JArray()
+Dim httpClient As New System.Net.Http.HttpClient()
+httpClient.Timeout = TimeSpan.FromSeconds(60)
 
-For Each folder As Newtonsoft.Json.Linq.JObject In folders
+For Each folder As JObject In folders
     Dim folderId As String = folder("Id").ToString()
     Dim folderName As String = If(folder("FullyQualifiedName") IsNot Nothing AndAlso
-        folder("FullyQualifiedName").Type <> Newtonsoft.Json.Linq.JTokenType.Null,
+        folder("FullyQualifiedName").Type &lt;> JTokenType.Null,
         folder("FullyQualifiedName").ToString(),
         folder("DisplayName").ToString())
 
-    Dim httpClient As New System.Net.Http.HttpClient()
-    httpClient.Timeout = TimeSpan.FromSeconds(60)
     Dim skip As Integer = 0
     Dim top As Integer = 100
     Dim hasMore As Boolean = True
 
     Do While hasMore
-        Dim url As String = in_SourceBaseUrl.TrimEnd("/"c) &
-            "/odata/QueueDefinitions?$top=" & top & "&$skip=" & skip
+        Dim url As String = in_SourceBaseUrl.TrimEnd("/"c) &amp;
+            "/odata/QueueDefinitions?$top=" &amp; top &amp; "&amp;$skip=" &amp; skip
         Dim request As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, url)
-        request.Headers.TryAddWithoutValidation("Authorization", "Bearer " & in_SourceToken)
+        request.Headers.TryAddWithoutValidation("Authorization", "Bearer " &amp; in_SourceToken)
         request.Headers.TryAddWithoutValidation("Accept", "application/json")
         request.Headers.TryAddWithoutValidation("X-UIPATH-OrganizationUnitId", folderId)
 
@@ -84,38 +85,42 @@ For Each folder As Newtonsoft.Json.Linq.JObject In folders
         End If
 
         Dim body As String = resp.Content.ReadAsStringAsync().Result
-        Dim obj As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(body)
-        Dim items As Newtonsoft.Json.Linq.JArray = TryCast(obj("value"), Newtonsoft.Json.Linq.JArray)
+        Dim obj As JObject = JObject.Parse(body)
+        Dim items As JArray = TryCast(obj("value"), JArray)
 
         If items Is Nothing OrElse items.Count = 0 Then
             hasMore = False
         Else
-            For Each queue As Newtonsoft.Json.Linq.JObject In items
-                queue("_SourceFolderId") = folderId
-                queue("_SourceFolderName") = folderName
-                allQueues.Add(queue)
+            For Each item As JObject In items
+                item("_SourceFolderId") = folderId
+                item("_SourceFolderName") = folderName
+                allItems.Add(item)
             Next
             skip += top
-            If items.Count < top Then hasMore = False
+            If items.Count &lt; top Then hasMore = False
         End If
     Loop
 Next
 
-v_AllQueuesJson = allQueues.ToString(Newtonsoft.Json.Formatting.Indented)
-        ]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
+Return allItems.ToString(Formatting.Indented)
+End Function)()</InArgument>
+      </Assign.Value>
+    </Assign>
 
     <Assign DisplayName="Set Output Path">
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_OutputPath]</OutArgument></Assign.To>
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Export_Queues.json")]</InArgument></Assign.Value>
     </Assign>
 
-    <ui:InvokeCode DisplayName="Save Export_Queues.json">
-      <ui:InvokeCode.Code>
-        <![CDATA[System.IO.File.WriteAllText(v_OutputPath, v_AllQueuesJson, System.Text.Encoding.UTF8)]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
+    <Assign DisplayName="Save Export_Queues.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">(Function()
+    System.IO.File.WriteAllText(v_OutputPath, v_AllQueuesJson, System.Text.Encoding.UTF8)
+    Return ""
+End Function)()</InArgument>
+      </Assign.Value>
+    </Assign>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Export Queues] Saved &quot; &amp; Newtonsoft.Json.Linq.JArray.Parse(v_AllQueuesJson).Count.ToString() &amp; &quot; queue definitions to &quot; &amp; v_OutputPath]" DisplayName="Log: Complete" />
   </Sequence>

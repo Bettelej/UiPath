@@ -11,8 +11,8 @@
     <sco:Collection x:TypeArguments="x:String">
       <x:String>System</x:String>
       <x:String>System.IO</x:String>
-      <x:String>System.Net.Http</x:String>
       <x:String>System.Text</x:String>
+      <x:String>System.Net.Http</x:String>
       <x:String>System.Collections.Generic</x:String>
       <x:String>Newtonsoft.Json</x:String>
       <x:String>Newtonsoft.Json.Linq</x:String>
@@ -27,6 +27,7 @@
       <AssemblyReference>System.Net.Http</AssemblyReference>
       <AssemblyReference>Newtonsoft.Json</AssemblyReference>
       <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+      <AssemblyReference>System.Private.Uri</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
   <x:Members>
@@ -35,125 +36,108 @@
     <x:Property Name="in_DataPath" Type="InArgument(x:String)" />
     <x:Property Name="in_ConfigJson" Type="InArgument(x:String)" />
   </x:Members>
-  <Sequence DisplayName="Import Step 2 - Environments → Subfolders">
+  <Sequence DisplayName="Import Step 2 - Environments to Subfolders">
     <Sequence.Variables>
       <Variable x:TypeArguments="x:String" Name="v_EnvsJson" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_FolderMappingJson" Default="&quot;{}&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_EnvMappingJson" Default="&quot;{}&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_EnvMappingPath" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_Dummy" Default="&quot;&quot;" />
     </Sequence.Variables>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Import Environments] Converting classic environments to modern subfolders...&quot;]" DisplayName="Log: Start" />
 
-    <ui:InvokeCode DisplayName="Read Input Files">
-      <ui:InvokeCode.Code>
-        <![CDATA[
-v_EnvsJson = System.IO.File.ReadAllText(
-    System.IO.Path.Combine(in_DataPath, "Export_Environments.json"), System.Text.Encoding.UTF8)
-v_FolderMappingJson = System.IO.File.ReadAllText(
-    System.IO.Path.Combine(in_DataPath, "FolderIdMapping.json"), System.Text.Encoding.UTF8)
-v_EnvMappingPath = System.IO.Path.Combine(in_DataPath, "EnvToSubfolderMapping.json")
-        ]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
+    <Assign DisplayName="Read Export_Environments.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_EnvsJson]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText(System.IO.Path.Combine(in_DataPath, "Export_Environments.json"), System.Text.Encoding.UTF8)]</InArgument></Assign.Value>
+    </Assign>
+    <Assign DisplayName="Read FolderIdMapping.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_FolderMappingJson]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText(System.IO.Path.Combine(in_DataPath, "FolderIdMapping.json"), System.Text.Encoding.UTF8)]</InArgument></Assign.Value>
+    </Assign>
+    <Assign DisplayName="Set EnvMappingPath">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_EnvMappingPath]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "EnvToSubfolderMapping.json")]</InArgument></Assign.Value>
+    </Assign>
 
-    <ui:InvokeCode DisplayName="Create Subfolders from Environments">
-      <ui:InvokeCode.Code>
-        <![CDATA[
-Dim envs As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_EnvsJson)
-Dim folderIdMap As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(v_FolderMappingJson)
-Dim config As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(in_ConfigJson)
-Dim envSubfolderConfig As Newtonsoft.Json.Linq.JObject = TryCast(config("EnvironmentToSubfolderMappings"),
-    Newtonsoft.Json.Linq.JObject)
+    <Assign DisplayName="Create Subfolders from Environments">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_EnvMappingJson]</OutArgument></Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">(Function()
+    Dim envs As JArray = JArray.Parse(v_EnvsJson)
+    Dim folderIdMap As JObject = JObject.Parse(v_FolderMappingJson)
+    Dim config As JObject = JObject.Parse(in_ConfigJson)
+    Dim envSubfolderConfig As JObject = TryCast(config("EnvironmentToSubfolderMappings"), JObject)
+    Dim envMapping As New JObject()
 
-' envName -> new subfolder Id
-Dim envMapping As New Newtonsoft.Json.Linq.JObject()
+    Dim httpClient As New System.Net.Http.HttpClient()
+    httpClient.Timeout = TimeSpan.FromSeconds(60)
 
-Dim httpClient As New System.Net.Http.HttpClient()
-httpClient.Timeout = TimeSpan.FromSeconds(60)
+    Dim allTargetFolderIds As New System.Collections.Generic.List(Of String)
+    For Each prop As JProperty In folderIdMap.Properties()
+        allTargetFolderIds.Add(prop.Value.ToString())
+    Next
 
-' Collect all mapped target folder IDs to use as parent when no explicit mapping
-Dim allTargetFolderIds As New System.Collections.Generic.List(Of String)
-For Each prop As Newtonsoft.Json.Linq.JProperty In folderIdMap.Properties()
-    allTargetFolderIds.Add(prop.Value.ToString())
-Next
+    For Each env As JObject In envs
+        Dim envName As String = env("Name").ToString()
+        Dim envDesc As String = If(env("Description") IsNot Nothing AndAlso
+            env("Description").Type &lt;> JTokenType.Null,
+            env("Description").ToString(), "")
 
-Dim created As Integer = 0
-Dim skipped As Integer = 0
+        Dim parentFolderId As String = ""
+        If envSubfolderConfig IsNot Nothing AndAlso envSubfolderConfig(envName) IsNot Nothing Then
+            parentFolderId = envSubfolderConfig(envName).ToString()
+        End If
+        If String.IsNullOrEmpty(parentFolderId) AndAlso allTargetFolderIds.Count > 0 Then
+            parentFolderId = allTargetFolderIds(0)
+        End If
+        If String.IsNullOrEmpty(parentFolderId) Then
+            Console.WriteLine("[Import Environments] WARNING: No parent folder for environment: " &amp; envName &amp; ". Skipping.")
+            Continue For
+        End If
 
-For Each env As Newtonsoft.Json.Linq.JObject In envs
-    Dim envName As String = env("Name").ToString()
-    Dim envDesc As String = If(env("Description") IsNot Nothing AndAlso
-        env("Description").Type <> Newtonsoft.Json.Linq.JTokenType.Null,
-        env("Description").ToString(), "")
+        Dim body As New JObject()
+        body("DisplayName") = envName
+        body("FullyQualifiedName") = envName
+        body("Description") = envDesc
+        body("ProvisionType") = "Manual"
+        body("PermissionModel") = "InheritFromFolder"
+        body("ParentId") = CInt(parentFolderId)
 
-    ' Determine parent folder ID
-    Dim parentFolderId As String = ""
+        Dim postUrl As String = in_TargetBaseUrl.TrimEnd("/"c) &amp; "/odata/Folders"
+        Dim postReq As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, postUrl)
+        postReq.Headers.TryAddWithoutValidation("Authorization", "Bearer " &amp; in_TargetToken)
+        postReq.Headers.TryAddWithoutValidation("Accept", "application/json")
+        postReq.Content = New System.Net.Http.StringContent(body.ToString(), System.Text.Encoding.UTF8, "application/json")
 
-    ' Check explicit mapping in config
-    If envSubfolderConfig IsNot Nothing AndAlso envSubfolderConfig(envName) IsNot Nothing Then
-        ' Config maps environment name to a source folder name;
-        ' find the mapped target id by matching displayname.
-        ' For simplicity, use value directly as target folder id if it looks like an id,
-        ' otherwise use first available mapping.
-        parentFolderId = envSubfolderConfig(envName).ToString()
-    End If
+        Dim postResp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(postReq).Result
+        Dim postBody As String = postResp.Content.ReadAsStringAsync().Result
 
-    ' Fall back to first available target folder
-    If String.IsNullOrEmpty(parentFolderId) AndAlso allTargetFolderIds.Count > 0 Then
-        parentFolderId = allTargetFolderIds(0)
-    End If
+        If postResp.IsSuccessStatusCode Then
+            Dim newFolder As JObject = JObject.Parse(postBody)
+            Dim newId As String = newFolder("Id").ToString()
+            envMapping(envName) = newId
+            Console.WriteLine("[Import Environments] Created subfolder for env '" &amp; envName &amp; "' -> newId=" &amp; newId)
+        Else
+            Console.WriteLine("[Import Environments] WARNING: Failed for env '" &amp; envName &amp;
+                "': HTTP " &amp; CInt(postResp.StatusCode).ToString() &amp; " - " &amp; postBody)
+        End If
+    Next
 
-    If String.IsNullOrEmpty(parentFolderId) Then
-        Console.WriteLine("[Import Environments] WARNING: No parent folder found for environment: " & envName & ". Skipping.")
-        skipped += 1
-        Continue For
-    End If
+    Return envMapping.ToString(Formatting.Indented)
+End Function)()</InArgument>
+      </Assign.Value>
+    </Assign>
 
-    ' Create subfolder with InheritFromFolder permission model
-    Dim body As New Newtonsoft.Json.Linq.JObject()
-    body("DisplayName") = envName
-    body("FullyQualifiedName") = envName
-    body("Description") = envDesc
-    body("ProvisionType") = "Manual"
-    body("PermissionModel") = "InheritFromFolder"
-    body("ParentId") = CInt(parentFolderId)
-
-    Dim postUrl As String = in_TargetBaseUrl.TrimEnd("/"c) & "/odata/Folders"
-    Dim postReq As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, postUrl)
-    postReq.Headers.TryAddWithoutValidation("Authorization", "Bearer " & in_TargetToken)
-    postReq.Headers.TryAddWithoutValidation("Accept", "application/json")
-    postReq.Content = New System.Net.Http.StringContent(
-        body.ToString(), System.Text.Encoding.UTF8, "application/json")
-
-    Dim postResp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(postReq).Result
-    Dim postBody As String = postResp.Content.ReadAsStringAsync().Result
-
-    If postResp.IsSuccessStatusCode Then
-        Dim newFolder As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(postBody)
-        Dim newId As String = newFolder("Id").ToString()
-        envMapping(envName) = newId
-        created += 1
-        Console.WriteLine("[Import Environments] Created subfolder for env '" & envName &
-            "' under parentId=" & parentFolderId & " -> newId=" & newId)
-    Else
-        Console.WriteLine("[Import Environments] WARNING: Failed for env '" & envName &
-            "': HTTP " & CInt(postResp.StatusCode).ToString() & " - " & postBody)
-        skipped += 1
-    End If
-Next
-
-v_EnvMappingJson = envMapping.ToString(Newtonsoft.Json.Formatting.Indented)
-Console.WriteLine("[Import Environments] Created: " & created & ", Skipped: " & skipped)
-        ]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
-
-    <ui:InvokeCode DisplayName="Save EnvToSubfolderMapping.json">
-      <ui:InvokeCode.Code>
-        <![CDATA[System.IO.File.WriteAllText(v_EnvMappingPath, v_EnvMappingJson, System.Text.Encoding.UTF8)]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
+    <Assign DisplayName="Save EnvToSubfolderMapping.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">(Function()
+    System.IO.File.WriteAllText(v_EnvMappingPath, v_EnvMappingJson, System.Text.Encoding.UTF8)
+    Return ""
+End Function)()</InArgument>
+      </Assign.Value>
+    </Assign>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Import Environments] EnvToSubfolderMapping.json saved to &quot; &amp; v_EnvMappingPath]" DisplayName="Log: Complete" />
   </Sequence>

@@ -11,6 +11,7 @@
     <sco:Collection x:TypeArguments="x:String">
       <x:String>System</x:String>
       <x:String>System.IO</x:String>
+      <x:String>System.Text</x:String>
       <x:String>System.Net.Http</x:String>
       <x:String>System.Collections.Generic</x:String>
       <x:String>Newtonsoft.Json</x:String>
@@ -26,6 +27,7 @@
       <AssemblyReference>System.Net.Http</AssemblyReference>
       <AssemblyReference>Newtonsoft.Json</AssemblyReference>
       <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+      <AssemblyReference>System.Private.Uri</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
   <x:Members>
@@ -39,6 +41,7 @@
       <Variable x:TypeArguments="x:Int32" Name="v_StatusCode" Default="0" />
       <Variable x:TypeArguments="x:String" Name="v_OutputPath" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_LibrariesDir" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_Dummy" Default="&quot;&quot;" />
     </Sequence.Variables>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Export Libraries] Fetching library list from source (tenant-level)...&quot;]" DisplayName="Log: Start" />
@@ -67,61 +70,56 @@
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Libraries")]</InArgument></Assign.Value>
     </Assign>
 
-    <ui:InvokeCode DisplayName="Save Export_Libraries.json">
-      <ui:InvokeCode.Code>
-        <![CDATA[
-Dim libs As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson)
-System.IO.File.WriteAllText(v_OutputPath,
-    libs.ToString(Newtonsoft.Json.Formatting.Indented),
-    System.Text.Encoding.UTF8)
-        ]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
+    <Assign DisplayName="Save Export_Libraries.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">(Function()
+    System.IO.File.WriteAllText(v_OutputPath, JArray.Parse(v_ResponseJson).ToString(Formatting.Indented), System.Text.Encoding.UTF8)
+    Return ""
+End Function)()</InArgument>
+      </Assign.Value>
+    </Assign>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Export Libraries] Downloading .nupkg files to &quot; &amp; v_LibrariesDir]" DisplayName="Log: Downloading" />
 
-    <ui:InvokeCode DisplayName="[REPLACE] Download Library .nupkg Files">
-      <ui:InvokeCode.Code>
-        <![CDATA[
-Dim libs As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson)
-Dim httpClient As New System.Net.Http.HttpClient()
-httpClient.Timeout = TimeSpan.FromMinutes(10)
-httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", "Bearer " & in_SourceToken)
+    <Assign DisplayName="Download Library .nupkg Files">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">(Function()
+    Dim libs As JArray = JArray.Parse(v_ResponseJson)
+    Dim httpClient As New System.Net.Http.HttpClient()
+    httpClient.Timeout = TimeSpan.FromMinutes(10)
+    httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", "Bearer " &amp; in_SourceToken)
 
-Dim downloaded As Integer = 0
-Dim failed As Integer = 0
+    For Each lib As JObject In libs
+        Dim libId As String = lib("Id").ToString()
+        Dim parts() As String = libId.Split(":"c)
+        Dim libName As String = parts(0)
+        Dim libVersion As String = If(parts.Length > 1, parts(1), "")
 
-For Each lib As Newtonsoft.Json.Linq.JObject In libs
-    Dim libId As String = lib("Id").ToString()
-    Dim parts() As String = libId.Split(":"c)
-    Dim libName As String = parts(0)
-    Dim libVersion As String = If(parts.Length > 1, parts(1), "")
+        Dim fileName As String = libName &amp; "." &amp; libVersion &amp; ".nupkg"
+        Dim filePath As String = System.IO.Path.Combine(v_LibrariesDir, fileName)
 
-    Dim fileName As String = libName & "." & libVersion & ".nupkg"
-    Dim filePath As String = System.IO.Path.Combine(v_LibrariesDir, fileName)
+        If System.IO.File.Exists(filePath) Then
+            Continue For
+        End If
 
-    If System.IO.File.Exists(filePath) Then
-        Continue For
-    End If
+        Try
+            Dim url As String = in_SourceBaseUrl.TrimEnd("/"c) &amp;
+                "/odata/Libraries/UiPath.Server.Configuration.OData.DownloadPackage(key='" &amp;
+                libName &amp; "',version='" &amp; libVersion &amp; "')"
 
-    Try
-        Dim url As String = in_SourceBaseUrl.TrimEnd("/"c) &
-            "/odata/Libraries/UiPath.Server.Configuration.OData.DownloadPackage(key='" &
-            libName & "',version='" & libVersion & "')"
+            Dim bytes() As Byte = httpClient.GetByteArrayAsync(url).Result
+            System.IO.File.WriteAllBytes(filePath, bytes)
+        Catch ex As Exception
+            Console.WriteLine("[Export Libraries] WARNING: Failed to download " &amp; libId &amp; ": " &amp; ex.Message)
+        End Try
+    Next
 
-        Dim bytes() As Byte = httpClient.GetByteArrayAsync(url).Result
-        System.IO.File.WriteAllBytes(filePath, bytes)
-        downloaded += 1
-    Catch ex As Exception
-        failed += 1
-        Console.WriteLine("[Export Libraries] WARNING: Failed to download " & libId & ": " & ex.Message)
-    End Try
-Next
-
-Console.WriteLine("[Export Libraries] Downloaded: " & downloaded & ", Failed: " & failed)
-        ]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
+    Return ""
+End Function)()</InArgument>
+      </Assign.Value>
+    </Assign>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Export Libraries] Complete. Libraries saved to &quot; &amp; v_LibrariesDir]" DisplayName="Log: Complete" />
   </Sequence>

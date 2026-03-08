@@ -11,8 +11,8 @@
     <sco:Collection x:TypeArguments="x:String">
       <x:String>System</x:String>
       <x:String>System.IO</x:String>
-      <x:String>System.Net.Http</x:String>
       <x:String>System.Text</x:String>
+      <x:String>System.Net.Http</x:String>
       <x:String>System.Collections.Generic</x:String>
       <x:String>Newtonsoft.Json</x:String>
       <x:String>Newtonsoft.Json.Linq</x:String>
@@ -27,6 +27,7 @@
       <AssemblyReference>System.Net.Http</AssemblyReference>
       <AssemblyReference>Newtonsoft.Json</AssemblyReference>
       <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+      <AssemblyReference>System.Private.Uri</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
   <x:Members>
@@ -39,129 +40,105 @@
       <Variable x:TypeArguments="x:String" Name="v_AssetsJson" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_FolderMappingJson" Default="&quot;{}&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_CredentialReportJson" Default="&quot;[]&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_Dummy" Default="&quot;&quot;" />
     </Sequence.Variables>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Import Assets] Creating assets in target folders...&quot;]" DisplayName="Log: Start" />
 
-    <ui:InvokeCode DisplayName="Read Input Files">
-      <ui:InvokeCode.Code>
-        <![CDATA[
-v_AssetsJson = System.IO.File.ReadAllText(
-    System.IO.Path.Combine(in_DataPath, "Export_Assets.json"), System.Text.Encoding.UTF8)
-v_FolderMappingJson = System.IO.File.ReadAllText(
-    System.IO.Path.Combine(in_DataPath, "FolderIdMapping.json"), System.Text.Encoding.UTF8)
-        ]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
+    <Assign DisplayName="Read Export_Assets.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_AssetsJson]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText(System.IO.Path.Combine(in_DataPath, "Export_Assets.json"), System.Text.Encoding.UTF8)]</InArgument></Assign.Value>
+    </Assign>
+    <Assign DisplayName="Read FolderIdMapping.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_FolderMappingJson]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText(System.IO.Path.Combine(in_DataPath, "FolderIdMapping.json"), System.Text.Encoding.UTF8)]</InArgument></Assign.Value>
+    </Assign>
 
-    <ui:InvokeCode DisplayName="Create Assets in Target">
-      <ui:InvokeCode.Code>
-        <![CDATA[
-Dim assets As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_AssetsJson)
-Dim folderIdMap As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(v_FolderMappingJson)
-Dim credentialReport As New Newtonsoft.Json.Linq.JArray()
+    <Assign DisplayName="Create Assets in Target">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_CredentialReportJson]</OutArgument></Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">(Function()
+    Dim assets As JArray = JArray.Parse(v_AssetsJson)
+    Dim folderIdMap As JObject = JObject.Parse(v_FolderMappingJson)
+    Dim credentialReport As New JArray()
 
-Dim httpClient As New System.Net.Http.HttpClient()
-httpClient.Timeout = TimeSpan.FromSeconds(60)
+    Dim httpClient As New System.Net.Http.HttpClient()
+    httpClient.Timeout = TimeSpan.FromSeconds(60)
 
-Dim created As Integer = 0
-Dim failed As Integer = 0
+    For Each asset As JObject In assets
+        Dim srcFolderId As String = If(asset("_SourceFolderId") IsNot Nothing, asset("_SourceFolderId").ToString(), "")
+        Dim srcFolderName As String = If(asset("_SourceFolderName") IsNot Nothing, asset("_SourceFolderName").ToString(), "")
 
-For Each asset As Newtonsoft.Json.Linq.JObject In assets
-    Dim srcFolderId As String = If(asset("_SourceFolderId") IsNot Nothing,
-        asset("_SourceFolderId").ToString(), "")
-    Dim srcFolderName As String = If(asset("_SourceFolderName") IsNot Nothing,
-        asset("_SourceFolderName").ToString(), "")
+        Dim targetFolderId As String = ""
+        If folderIdMap(srcFolderId) IsNot Nothing Then
+            targetFolderId = folderIdMap(srcFolderId).ToString()
+        Else
+            Console.WriteLine("[Import Assets] WARNING: No folder mapping for source folder " &amp; srcFolderId &amp; ". Skipping asset: " &amp; asset("Name").ToString())
+            Continue For
+        End If
 
-    ' Look up mapped target folder ID
-    Dim targetFolderId As String = ""
-    If folderIdMap(srcFolderId) IsNot Nothing Then
-        targetFolderId = folderIdMap(srcFolderId).ToString()
-    Else
-        Console.WriteLine("[Import Assets] WARNING: No folder mapping for source folder " &
-            srcFolderId & ". Skipping asset: " & asset("Name").ToString())
-        failed += 1
-        Continue For
-    End If
+        Dim assetType As String = If(asset("ValueType") IsNot Nothing, asset("ValueType").ToString(), "Text")
+        Dim assetName As String = asset("Name").ToString()
 
-    Dim assetType As String = If(asset("ValueType") IsNot Nothing,
-        asset("ValueType").ToString(), "Text")
-    Dim assetName As String = asset("Name").ToString()
+        Dim body As New JObject()
+        body("Name") = assetName
+        body("Description") = If(asset("Description") IsNot Nothing AndAlso asset("Description").Type &lt;> JTokenType.Null, asset("Description").ToString(), "")
+        body("ValueType") = assetType
+        body("ValueScope") = "Global"
 
-    ' Build the POST body based on asset type
-    Dim body As New Newtonsoft.Json.Linq.JObject()
-    body("Name") = assetName
-    body("Description") = If(asset("Description") IsNot Nothing AndAlso
-        asset("Description").Type <> Newtonsoft.Json.Linq.JTokenType.Null,
-        asset("Description").ToString(), "")
-    body("ValueType") = assetType
-    body("ValueScope") = "Global"
+        Select Case assetType
+            Case "Text"
+                body("StringValue") = If(asset("StringValue") IsNot Nothing, asset("StringValue").ToString(), "")
+            Case "Bool"
+                body("BoolValue") = If(asset("BoolValue") IsNot Nothing, CBool(asset("BoolValue")), False)
+            Case "Integer"
+                body("IntValue") = If(asset("IntValue") IsNot Nothing, CInt(asset("IntValue")), 0)
+            Case "KeyValueList"
+                body("KeyValueList") = If(asset("KeyValueList") IsNot Nothing, asset("KeyValueList"), New JArray())
+            Case "Credential"
+                body("CredentialUsername") = If(asset("CredentialUsername") IsNot Nothing, asset("CredentialUsername").ToString(), "")
+                body("CredentialPassword") = "CHANGE_ME_MANUALLY"
+                Dim reportEntry As New JObject()
+                reportEntry("FolderName") = srcFolderName
+                reportEntry("AssetName") = assetName
+                reportEntry("Username") = body("CredentialUsername")
+                reportEntry("Note") = "Password must be set manually in target Orchestrator"
+                credentialReport.Add(reportEntry)
+            Case Else
+                body("StringValue") = If(asset("StringValue") IsNot Nothing, asset("StringValue").ToString(), "")
+        End Select
 
-    Select Case assetType
-        Case "Text"
-            body("StringValue") = If(asset("StringValue") IsNot Nothing,
-                asset("StringValue").ToString(), "")
-        Case "Bool"
-            body("BoolValue") = If(asset("BoolValue") IsNot Nothing,
-                CBool(asset("BoolValue")), False)
-        Case "Integer"
-            body("IntValue") = If(asset("IntValue") IsNot Nothing,
-                CInt(asset("IntValue")), 0)
-        Case "KeyValueList"
-            body("KeyValueList") = If(asset("KeyValueList") IsNot Nothing,
-                asset("KeyValueList"), New Newtonsoft.Json.Linq.JArray())
-        Case "Credential"
-            body("CredentialUsername") = If(asset("CredentialUsername") IsNot Nothing,
-                asset("CredentialUsername").ToString(), "")
-            body("CredentialPassword") = "CHANGE_ME_MANUALLY"
-            ' Record for manual action report
-            Dim reportEntry As New Newtonsoft.Json.Linq.JObject()
-            reportEntry("FolderName") = srcFolderName
-            reportEntry("AssetName") = assetName
-            reportEntry("Username") = body("CredentialUsername")
-            reportEntry("Note") = "Password must be set manually in target Orchestrator"
-            credentialReport.Add(reportEntry)
-        Case Else
-            body("StringValue") = If(asset("StringValue") IsNot Nothing,
-                asset("StringValue").ToString(), "")
-    End Select
+        Dim postUrl As String = in_TargetBaseUrl.TrimEnd("/"c) &amp; "/odata/Assets"
+        Dim postReq As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, postUrl)
+        postReq.Headers.TryAddWithoutValidation("Authorization", "Bearer " &amp; in_TargetToken)
+        postReq.Headers.TryAddWithoutValidation("Accept", "application/json")
+        postReq.Headers.TryAddWithoutValidation("X-UIPATH-OrganizationUnitId", targetFolderId)
+        postReq.Content = New System.Net.Http.StringContent(body.ToString(), System.Text.Encoding.UTF8, "application/json")
 
-    Dim postUrl As String = in_TargetBaseUrl.TrimEnd("/"c) & "/odata/Assets"
-    Dim postReq As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, postUrl)
-    postReq.Headers.TryAddWithoutValidation("Authorization", "Bearer " & in_TargetToken)
-    postReq.Headers.TryAddWithoutValidation("Accept", "application/json")
-    postReq.Headers.TryAddWithoutValidation("X-UIPATH-OrganizationUnitId", targetFolderId)
-    postReq.Content = New System.Net.Http.StringContent(
-        body.ToString(), System.Text.Encoding.UTF8, "application/json")
+        Dim postResp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(postReq).Result
 
-    Dim postResp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(postReq).Result
+        If Not postResp.IsSuccessStatusCode Then
+            Dim errBody As String = postResp.Content.ReadAsStringAsync().Result
+            Console.WriteLine("[Import Assets] WARNING: Failed to create asset '" &amp; assetName &amp;
+                "' in folder " &amp; targetFolderId &amp; ": HTTP " &amp; CInt(postResp.StatusCode).ToString() &amp; " - " &amp; errBody)
+        End If
+    Next
 
-    If postResp.IsSuccessStatusCode Then
-        created += 1
-    Else
-        Dim errBody As String = postResp.Content.ReadAsStringAsync().Result
-        Console.WriteLine("[Import Assets] WARNING: Failed to create asset '" & assetName &
-            "' in folder " & targetFolderId & ": HTTP " &
-            CInt(postResp.StatusCode).ToString() & " - " & errBody)
-        failed += 1
-    End If
-Next
+    Return credentialReport.ToString(Formatting.Indented)
+End Function)()</InArgument>
+      </Assign.Value>
+    </Assign>
 
-v_CredentialReportJson = credentialReport.ToString(Newtonsoft.Json.Formatting.Indented)
-Console.WriteLine("[Import Assets] Created: " & created & ", Failed: " & failed &
-    ", Credentials requiring manual password: " & credentialReport.Count.ToString())
-        ]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
-
-    <ui:InvokeCode DisplayName="Save CredentialReport_ManualAction.json">
-      <ui:InvokeCode.Code>
-        <![CDATA[
-Dim reportPath As String = System.IO.Path.Combine(in_DataPath, "CredentialReport_ManualAction.json")
-System.IO.File.WriteAllText(reportPath, v_CredentialReportJson, System.Text.Encoding.UTF8)
-        ]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
+    <Assign DisplayName="Save CredentialReport_ManualAction.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">(Function()
+    Dim reportPath As String = System.IO.Path.Combine(in_DataPath, "CredentialReport_ManualAction.json")
+    System.IO.File.WriteAllText(reportPath, v_CredentialReportJson, System.Text.Encoding.UTF8)
+    Return ""
+End Function)()</InArgument>
+      </Assign.Value>
+    </Assign>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Import Assets] Complete. Check CredentialReport_ManualAction.json for credentials requiring manual password setup.&quot;]" DisplayName="Log: Complete" />
   </Sequence>

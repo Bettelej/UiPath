@@ -11,8 +11,8 @@
     <sco:Collection x:TypeArguments="x:String">
       <x:String>System</x:String>
       <x:String>System.IO</x:String>
-      <x:String>System.Net.Http</x:String>
       <x:String>System.Text</x:String>
+      <x:String>System.Net.Http</x:String>
       <x:String>System.Collections.Generic</x:String>
       <x:String>Newtonsoft.Json</x:String>
       <x:String>Newtonsoft.Json.Linq</x:String>
@@ -27,6 +27,7 @@
       <AssemblyReference>System.Net.Http</AssemblyReference>
       <AssemblyReference>Newtonsoft.Json</AssemblyReference>
       <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+      <AssemblyReference>System.Private.Uri</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
   <x:Members>
@@ -39,137 +40,108 @@
       <Variable x:TypeArguments="x:String" Name="v_TriggersJson" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_FolderMappingJson" Default="&quot;{}&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_ReleaseKeyMappingJson" Default="&quot;{}&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_Dummy" Default="&quot;&quot;" />
     </Sequence.Variables>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Import Triggers] Creating process schedule triggers in target (all created as Disabled)...&quot;]" DisplayName="Log: Start" />
 
-    <ui:InvokeCode DisplayName="Read Input Files">
-      <ui:InvokeCode.Code>
-        <![CDATA[
-v_TriggersJson = System.IO.File.ReadAllText(
-    System.IO.Path.Combine(in_DataPath, "Export_Triggers.json"), System.Text.Encoding.UTF8)
-v_FolderMappingJson = System.IO.File.ReadAllText(
-    System.IO.Path.Combine(in_DataPath, "FolderIdMapping.json"), System.Text.Encoding.UTF8)
-v_ReleaseKeyMappingJson = System.IO.File.ReadAllText(
-    System.IO.Path.Combine(in_DataPath, "ReleaseKeyMapping.json"), System.Text.Encoding.UTF8)
-        ]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
+    <Assign DisplayName="Read Export_Triggers.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_TriggersJson]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText(System.IO.Path.Combine(in_DataPath, "Export_Triggers.json"), System.Text.Encoding.UTF8)]</InArgument></Assign.Value>
+    </Assign>
+    <Assign DisplayName="Read FolderIdMapping.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_FolderMappingJson]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText(System.IO.Path.Combine(in_DataPath, "FolderIdMapping.json"), System.Text.Encoding.UTF8)]</InArgument></Assign.Value>
+    </Assign>
+    <Assign DisplayName="Read ReleaseKeyMapping.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_ReleaseKeyMappingJson]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText(System.IO.Path.Combine(in_DataPath, "ReleaseKeyMapping.json"), System.Text.Encoding.UTF8)]</InArgument></Assign.Value>
+    </Assign>
 
-    <ui:InvokeCode DisplayName="Create Triggers in Target (Disabled)">
-      <ui:InvokeCode.Code>
-        <![CDATA[
-Dim triggers As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_TriggersJson)
-Dim folderIdMap As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(v_FolderMappingJson)
-Dim releaseKeyMap As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(v_ReleaseKeyMappingJson)
+    <Assign DisplayName="Create Triggers in Target (Disabled)">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">(Function()
+    Dim triggers As JArray = JArray.Parse(v_TriggersJson)
+    Dim folderIdMap As JObject = JObject.Parse(v_FolderMappingJson)
+    Dim releaseKeyMap As JObject = JObject.Parse(v_ReleaseKeyMappingJson)
 
-Dim httpClient As New System.Net.Http.HttpClient()
-httpClient.Timeout = TimeSpan.FromSeconds(60)
+    Dim httpClient As New System.Net.Http.HttpClient()
+    httpClient.Timeout = TimeSpan.FromSeconds(60)
 
-Dim created As Integer = 0
-Dim skippedNoRelease As Integer = 0
-Dim skippedNoFolder As Integer = 0
-Dim failed As Integer = 0
+    For Each trigger As JObject In triggers
+        Dim srcFolderId As String = If(trigger("_SourceFolderId") IsNot Nothing, trigger("_SourceFolderId").ToString(), "")
+        Dim triggerName As String = If(trigger("Name") IsNot Nothing, trigger("Name").ToString(), "UnnamedTrigger")
+        Dim oldReleaseKey As String = If(trigger("ReleaseKey") IsNot Nothing, trigger("ReleaseKey").ToString(), "")
 
-For Each trigger As Newtonsoft.Json.Linq.JObject In triggers
-    Dim srcFolderId As String = If(trigger("_SourceFolderId") IsNot Nothing,
-        trigger("_SourceFolderId").ToString(), "")
-    Dim triggerName As String = If(trigger("Name") IsNot Nothing,
-        trigger("Name").ToString(), "UnnamedTrigger")
-    Dim oldReleaseKey As String = If(trigger("ReleaseKey") IsNot Nothing,
-        trigger("ReleaseKey").ToString(), "")
+        Dim targetFolderId As String = ""
+        If folderIdMap(srcFolderId) IsNot Nothing Then
+            targetFolderId = folderIdMap(srcFolderId).ToString()
+        Else
+            Console.WriteLine("[Import Triggers] WARNING: No folder mapping for source folder " &amp; srcFolderId &amp; ". Skipping trigger: " &amp; triggerName)
+            Continue For
+        End If
 
-    ' Validate folder mapping
-    Dim targetFolderId As String = ""
-    If folderIdMap(srcFolderId) IsNot Nothing Then
-        targetFolderId = folderIdMap(srcFolderId).ToString()
-    Else
-        Console.WriteLine("[Import Triggers] WARNING: No folder mapping for source folder " &
-            srcFolderId & ". Skipping trigger: " & triggerName)
-        skippedNoFolder += 1
-        Continue For
-    End If
+        If String.IsNullOrEmpty(oldReleaseKey) OrElse releaseKeyMap(oldReleaseKey) Is Nothing Then
+            Console.WriteLine("[Import Triggers] WARNING: No release key mapping for key '" &amp; oldReleaseKey &amp; "'. Skipping trigger: " &amp; triggerName)
+            Continue For
+        End If
 
-    ' Validate release key mapping
-    If String.IsNullOrEmpty(oldReleaseKey) OrElse releaseKeyMap(oldReleaseKey) Is Nothing Then
-        Console.WriteLine("[Import Triggers] WARNING: No release key mapping for key '" &
-            oldReleaseKey & "'. Skipping trigger: " & triggerName)
-        skippedNoRelease += 1
-        Continue For
-    End If
+        Dim newReleaseKey As String = releaseKeyMap(oldReleaseKey).ToString()
 
-    Dim newReleaseKey As String = releaseKeyMap(oldReleaseKey).ToString()
+        Dim body As New JObject()
+        body("Name") = triggerName
+        body("ReleaseKey") = newReleaseKey
+        body("Enabled") = False
 
-    ' Build POST body preserving all schedule settings
-    Dim body As New Newtonsoft.Json.Linq.JObject()
-    body("Name") = triggerName
-    body("ReleaseKey") = newReleaseKey
-    body("Enabled") = False ' Safety: always create disabled, enable manually after verification
+        If trigger("StartProcessCron") IsNot Nothing AndAlso trigger("StartProcessCron").Type &lt;> JTokenType.Null Then
+            body("StartProcessCron") = trigger("StartProcessCron").ToString()
+        End If
+        If trigger("TimeZoneId") IsNot Nothing AndAlso trigger("TimeZoneId").Type &lt;> JTokenType.Null Then
+            body("TimeZoneId") = trigger("TimeZoneId").ToString()
+        End If
+        If trigger("StopStrategy") IsNot Nothing AndAlso trigger("StopStrategy").Type &lt;> JTokenType.Null Then
+            body("StopStrategy") = trigger("StopStrategy").ToString()
+        End If
+        If trigger("KillJobsIfNotStopped") IsNot Nothing AndAlso trigger("KillJobsIfNotStopped").Type &lt;> JTokenType.Null Then
+            body("KillJobsIfNotStopped") = CBool(trigger("KillJobsIfNotStopped"))
+        End If
+        If trigger("StopProcessingAfterMinutes") IsNot Nothing AndAlso trigger("StopProcessingAfterMinutes").Type &lt;> JTokenType.Null Then
+            body("StopProcessingAfterMinutes") = CInt(trigger("StopProcessingAfterMinutes"))
+        End If
+        If trigger("MaxConcurrentJobs") IsNot Nothing AndAlso trigger("MaxConcurrentJobs").Type &lt;> JTokenType.Null Then
+            body("MaxConcurrentJobs") = CInt(trigger("MaxConcurrentJobs"))
+        End If
+        If trigger("InputArguments") IsNot Nothing AndAlso trigger("InputArguments").Type &lt;> JTokenType.Null Then
+            body("InputArguments") = trigger("InputArguments").ToString()
+        End If
+        If trigger("StartStrategy") IsNot Nothing AndAlso trigger("StartStrategy").Type &lt;> JTokenType.Null Then
+            body("StartStrategy") = CInt(trigger("StartStrategy"))
+        End If
 
-    ' Copy schedule fields
-    If trigger("StartProcessCron") IsNot Nothing AndAlso
-       trigger("StartProcessCron").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
-        body("StartProcessCron") = trigger("StartProcessCron").ToString()
-    End If
-    If trigger("TimeZoneId") IsNot Nothing AndAlso
-       trigger("TimeZoneId").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
-        body("TimeZoneId") = trigger("TimeZoneId").ToString()
-    End If
-    If trigger("StopStrategy") IsNot Nothing AndAlso
-       trigger("StopStrategy").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
-        body("StopStrategy") = trigger("StopStrategy").ToString()
-    End If
-    If trigger("KillJobsIfNotStopped") IsNot Nothing AndAlso
-       trigger("KillJobsIfNotStopped").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
-        body("KillJobsIfNotStopped") = CBool(trigger("KillJobsIfNotStopped"))
-    End If
-    If trigger("StopProcessingAfterMinutes") IsNot Nothing AndAlso
-       trigger("StopProcessingAfterMinutes").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
-        body("StopProcessingAfterMinutes") = CInt(trigger("StopProcessingAfterMinutes"))
-    End If
-    If trigger("MaxConcurrentJobs") IsNot Nothing AndAlso
-       trigger("MaxConcurrentJobs").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
-        body("MaxConcurrentJobs") = CInt(trigger("MaxConcurrentJobs"))
-    End If
-    If trigger("InputArguments") IsNot Nothing AndAlso
-       trigger("InputArguments").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
-        body("InputArguments") = trigger("InputArguments").ToString()
-    End If
-    If trigger("StartStrategy") IsNot Nothing AndAlso
-       trigger("StartStrategy").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
-        body("StartStrategy") = CInt(trigger("StartStrategy"))
-    End If
+        Dim postUrl As String = in_TargetBaseUrl.TrimEnd("/"c) &amp; "/odata/ProcessSchedules"
+        Dim postReq As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, postUrl)
+        postReq.Headers.TryAddWithoutValidation("Authorization", "Bearer " &amp; in_TargetToken)
+        postReq.Headers.TryAddWithoutValidation("Accept", "application/json")
+        postReq.Headers.TryAddWithoutValidation("X-UIPATH-OrganizationUnitId", targetFolderId)
+        postReq.Content = New System.Net.Http.StringContent(body.ToString(), System.Text.Encoding.UTF8, "application/json")
 
-    Dim postUrl As String = in_TargetBaseUrl.TrimEnd("/"c) & "/odata/ProcessSchedules"
-    Dim postReq As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, postUrl)
-    postReq.Headers.TryAddWithoutValidation("Authorization", "Bearer " & in_TargetToken)
-    postReq.Headers.TryAddWithoutValidation("Accept", "application/json")
-    postReq.Headers.TryAddWithoutValidation("X-UIPATH-OrganizationUnitId", targetFolderId)
-    postReq.Content = New System.Net.Http.StringContent(
-        body.ToString(), System.Text.Encoding.UTF8, "application/json")
+        Dim postResp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(postReq).Result
+        Dim postBody As String = postResp.Content.ReadAsStringAsync().Result
 
-    Dim postResp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(postReq).Result
-    Dim postBody As String = postResp.Content.ReadAsStringAsync().Result
+        If postResp.IsSuccessStatusCode Then
+            Console.WriteLine("[Import Triggers] Created trigger (DISABLED): " &amp; triggerName)
+        Else
+            Console.WriteLine("[Import Triggers] WARNING: Failed to create trigger '" &amp; triggerName &amp;
+                "': HTTP " &amp; CInt(postResp.StatusCode).ToString() &amp; " - " &amp; postBody)
+        End If
+    Next
 
-    If postResp.IsSuccessStatusCode Then
-        created += 1
-        Console.WriteLine("[Import Triggers] Created trigger (DISABLED): " & triggerName)
-    Else
-        Console.WriteLine("[Import Triggers] WARNING: Failed to create trigger '" & triggerName &
-            "': HTTP " & CInt(postResp.StatusCode).ToString() & " - " & postBody)
-        failed += 1
-    End If
-Next
-
-Console.WriteLine("[Import Triggers] Created (disabled): " & created &
-    ", Skipped (no folder): " & skippedNoFolder &
-    ", Skipped (no release): " & skippedNoRelease &
-    ", Failed: " & failed)
-Console.WriteLine("[Import Triggers] IMPORTANT: All triggers were created as DISABLED. " &
-    "Enable them manually in target Orchestrator after verifying processes.")
-        ]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
+    Console.WriteLine("[Import Triggers] IMPORTANT: All triggers were created as DISABLED. Enable them manually after verifying processes.")
+    Return ""
+End Function)()</InArgument>
+      </Assign.Value>
+    </Assign>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Import Triggers] Trigger import complete. All triggers are DISABLED - enable manually after verification.&quot;]" DisplayName="Log: Complete" />
   </Sequence>

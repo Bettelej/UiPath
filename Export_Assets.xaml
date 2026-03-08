@@ -11,6 +11,8 @@
     <sco:Collection x:TypeArguments="x:String">
       <x:String>System</x:String>
       <x:String>System.IO</x:String>
+      <x:String>System.Text</x:String>
+      <x:String>System.Net.Http</x:String>
       <x:String>System.Collections.Generic</x:String>
       <x:String>Newtonsoft.Json</x:String>
       <x:String>Newtonsoft.Json.Linq</x:String>
@@ -22,8 +24,10 @@
       <AssemblyReference>mscorlib</AssemblyReference>
       <AssemblyReference>System</AssemblyReference>
       <AssemblyReference>System.Core</AssemblyReference>
+      <AssemblyReference>System.Net.Http</AssemblyReference>
       <AssemblyReference>Newtonsoft.Json</AssemblyReference>
       <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+      <AssemblyReference>System.Private.Uri</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
   <x:Members>
@@ -34,13 +38,10 @@
   <Sequence DisplayName="Export Step 3 - Assets">
     <Sequence.Variables>
       <Variable x:TypeArguments="x:String" Name="v_FoldersJson" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_ResponseJson" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:Int32" Name="v_StatusCode" Default="0" />
       <Variable x:TypeArguments="x:String" Name="v_FoldersPath" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_OutputPath" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_CurrentFolderId" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_CurrentFolderName" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_AllAssetsJson" Default="&quot;[]&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_Dummy" Default="&quot;&quot;" />
     </Sequence.Variables>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Export Assets] Reading folder list and fetching assets per folder...&quot;]" DisplayName="Log: Start" />
@@ -49,37 +50,37 @@
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_FoldersPath]</OutArgument></Assign.To>
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Export_Folders.json")]</InArgument></Assign.Value>
     </Assign>
-    <ui:InvokeCode DisplayName="Read Export_Folders.json">
-      <ui:InvokeCode.Code>
-        <![CDATA[v_FoldersJson = System.IO.File.ReadAllText(v_FoldersPath, System.Text.Encoding.UTF8)]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
 
-    <ui:InvokeCode DisplayName="Fetch Assets Per Folder">
-      <ui:InvokeCode.Code>
-        <![CDATA[
-Dim folders As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_FoldersJson)
-Dim allAssets As New Newtonsoft.Json.Linq.JArray()
+    <Assign DisplayName="Read Export_Folders.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_FoldersJson]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText(v_FoldersPath, System.Text.Encoding.UTF8)]</InArgument></Assign.Value>
+    </Assign>
 
-For Each folder As Newtonsoft.Json.Linq.JObject In folders
+    <Assign DisplayName="Fetch Assets Per Folder">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_AllAssetsJson]</OutArgument></Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">(Function()
+Dim folders As JArray = JArray.Parse(v_FoldersJson)
+Dim allItems As New JArray()
+Dim httpClient As New System.Net.Http.HttpClient()
+httpClient.Timeout = TimeSpan.FromSeconds(60)
+
+For Each folder As JObject In folders
     Dim folderId As String = folder("Id").ToString()
-    Dim folderName As String = folder("FullyQualifiedName") IsNot Nothing AndAlso
-        folder("FullyQualifiedName").Type <> Newtonsoft.Json.Linq.JTokenType.Null _
-        ? folder("FullyQualifiedName").ToString()
-        : folder("DisplayName").ToString()
+    Dim folderName As String = If(folder("FullyQualifiedName") IsNot Nothing AndAlso
+        folder("FullyQualifiedName").Type &lt;> JTokenType.Null,
+        folder("FullyQualifiedName").ToString(),
+        folder("DisplayName").ToString())
 
-    ' Use HttpClient to fetch assets for this folder
-    Dim httpClient As New System.Net.Http.HttpClient()
-    httpClient.Timeout = TimeSpan.FromSeconds(60)
     Dim skip As Integer = 0
     Dim top As Integer = 100
     Dim hasMore As Boolean = True
 
     Do While hasMore
-        Dim url As String = in_SourceBaseUrl.TrimEnd("/"c) &
-            "/odata/Assets?$top=" & top & "&$skip=" & skip
+        Dim url As String = in_SourceBaseUrl.TrimEnd("/"c) &amp;
+            "/odata/Assets?$top=" &amp; top &amp; "&amp;$skip=" &amp; skip
         Dim request As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, url)
-        request.Headers.TryAddWithoutValidation("Authorization", "Bearer " & in_SourceToken)
+        request.Headers.TryAddWithoutValidation("Authorization", "Bearer " &amp; in_SourceToken)
         request.Headers.TryAddWithoutValidation("Accept", "application/json")
         request.Headers.TryAddWithoutValidation("X-UIPATH-OrganizationUnitId", folderId)
 
@@ -90,43 +91,45 @@ For Each folder As Newtonsoft.Json.Linq.JObject In folders
         End If
 
         Dim body As String = resp.Content.ReadAsStringAsync().Result
-        Dim obj As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(body)
-        Dim items As Newtonsoft.Json.Linq.JArray = TryCast(obj("value"), Newtonsoft.Json.Linq.JArray)
+        Dim obj As JObject = JObject.Parse(body)
+        Dim items As JArray = TryCast(obj("value"), JArray)
 
         If items Is Nothing OrElse items.Count = 0 Then
             hasMore = False
         Else
-            For Each asset As Newtonsoft.Json.Linq.JObject In items
-                ' Tag each asset with source folder metadata
-                asset("_SourceFolderId") = folderId
-                asset("_SourceFolderName") = folderName
-                ' Credential passwords cannot be exported via API - exclude raw value
-                If asset("ValueType") IsNot Nothing AndAlso asset("ValueType").ToString() = "Credential" Then
-                    asset("Value") = ""
+            For Each item As JObject In items
+                item("_SourceFolderId") = folderId
+                item("_SourceFolderName") = folderName
+                If item("ValueType") IsNot Nothing AndAlso item("ValueType").ToString() = "Credential" Then
+                    item("Value") = ""
                 End If
-                allAssets.Add(asset)
+                allItems.Add(item)
             Next
             skip += top
-            If items.Count < top Then hasMore = False
+            If items.Count &lt; top Then hasMore = False
         End If
     Loop
 Next
 
-v_AllAssetsJson = allAssets.ToString(Newtonsoft.Json.Formatting.Indented)
-        ]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
+Return allItems.ToString(Formatting.Indented)
+End Function)()</InArgument>
+      </Assign.Value>
+    </Assign>
 
     <Assign DisplayName="Set Output Path">
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_OutputPath]</OutArgument></Assign.To>
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Export_Assets.json")]</InArgument></Assign.Value>
     </Assign>
 
-    <ui:InvokeCode DisplayName="Save Export_Assets.json">
-      <ui:InvokeCode.Code>
-        <![CDATA[System.IO.File.WriteAllText(v_OutputPath, v_AllAssetsJson, System.Text.Encoding.UTF8)]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
+    <Assign DisplayName="Save Export_Assets.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">(Function()
+    System.IO.File.WriteAllText(v_OutputPath, v_AllAssetsJson, System.Text.Encoding.UTF8)
+    Return ""
+End Function)()</InArgument>
+      </Assign.Value>
+    </Assign>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Export Assets] Saved &quot; &amp; Newtonsoft.Json.Linq.JArray.Parse(v_AllAssetsJson).Count.ToString() &amp; &quot; assets to &quot; &amp; v_OutputPath]" DisplayName="Log: Complete" />
   </Sequence>

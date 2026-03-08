@@ -11,8 +11,8 @@
     <sco:Collection x:TypeArguments="x:String">
       <x:String>System</x:String>
       <x:String>System.IO</x:String>
-      <x:String>System.Net.Http</x:String>
       <x:String>System.Text</x:String>
+      <x:String>System.Net.Http</x:String>
       <x:String>System.Collections.Generic</x:String>
       <x:String>Newtonsoft.Json</x:String>
       <x:String>Newtonsoft.Json.Linq</x:String>
@@ -27,6 +27,7 @@
       <AssemblyReference>System.Net.Http</AssemblyReference>
       <AssemblyReference>Newtonsoft.Json</AssemblyReference>
       <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+      <AssemblyReference>System.Private.Uri</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
   <x:Members>
@@ -35,144 +36,129 @@
     <x:Property Name="in_DataPath" Type="InArgument(x:String)" />
     <x:Property Name="in_ConfigJson" Type="InArgument(x:String)" />
   </x:Members>
-  <Sequence DisplayName="Import Step 1 - Folders (Classic → Modern)">
+  <Sequence DisplayName="Import Step 1 - Folders (Classic to Modern)">
     <Sequence.Variables>
       <Variable x:TypeArguments="x:String" Name="v_FoldersJson" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_MappingPath" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_FolderMappingJson" Default="&quot;{}&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_Dummy" Default="&quot;&quot;" />
     </Sequence.Variables>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Import Folders] Creating modern folders in target Orchestrator...&quot;]" DisplayName="Log: Start" />
 
-    <ui:InvokeCode DisplayName="Read Export_Folders.json">
-      <ui:InvokeCode.Code>
-        <![CDATA[
-v_FoldersJson = System.IO.File.ReadAllText(
-    System.IO.Path.Combine(in_DataPath, "Export_Folders.json"),
-    System.Text.Encoding.UTF8)
-        ]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
+    <Assign DisplayName="Read Export_Folders.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_FoldersJson]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText(System.IO.Path.Combine(in_DataPath, "Export_Folders.json"), System.Text.Encoding.UTF8)]</InArgument></Assign.Value>
+    </Assign>
 
     <Assign DisplayName="Set Mapping Path">
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_MappingPath]</OutArgument></Assign.To>
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "FolderIdMapping.json")]</InArgument></Assign.Value>
     </Assign>
 
-    <ui:InvokeCode DisplayName="Create Modern Folders and Save Mapping">
-      <ui:InvokeCode.Code>
-        <![CDATA[
-Dim srcFolders As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_FoldersJson)
-Dim config As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(in_ConfigJson)
-Dim folderMappings As Newtonsoft.Json.Linq.JObject = TryCast(config("FolderMappings"),
-    Newtonsoft.Json.Linq.JObject)
+    <Assign DisplayName="Create Modern Folders and Build Mapping">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_FolderMappingJson]</OutArgument></Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">(Function()
+    Dim srcFolders As JArray = JArray.Parse(v_FoldersJson)
+    Dim config As JObject = JObject.Parse(in_ConfigJson)
+    Dim folderMappings As JObject = TryCast(config("FolderMappings"), JObject)
+    Dim idMapping As New JObject()
 
-' oldId -> newId mapping
-Dim idMapping As New Newtonsoft.Json.Linq.JObject()
+    Dim httpClient As New System.Net.Http.HttpClient()
+    httpClient.Timeout = TimeSpan.FromSeconds(60)
 
-' Fetch existing target folders for duplicate check
-Dim httpClient As New System.Net.Http.HttpClient()
-httpClient.Timeout = TimeSpan.FromSeconds(60)
+    Dim existingFolders As New System.Collections.Generic.Dictionary(Of String, String)(StringComparer.OrdinalIgnoreCase)
 
-Dim existingFolders As New System.Collections.Generic.Dictionary(Of String, String)(
-    StringComparer.OrdinalIgnoreCase)
+    Dim skip As Integer = 0
+    Dim top As Integer = 100
+    Dim hasMore As Boolean = True
 
-Dim skip As Integer = 0
-Dim top As Integer = 100
-Dim hasMore As Boolean = True
+    Do While hasMore
+        Dim listUrl As String = in_TargetBaseUrl.TrimEnd("/"c) &amp;
+            "/odata/Folders?$top=" &amp; top &amp; "&amp;$skip=" &amp; skip
+        Dim listReq As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, listUrl)
+        listReq.Headers.TryAddWithoutValidation("Authorization", "Bearer " &amp; in_TargetToken)
+        listReq.Headers.TryAddWithoutValidation("Accept", "application/json")
+        Dim listResp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(listReq).Result
+        Dim listBody As String = listResp.Content.ReadAsStringAsync().Result
+        Dim listObj As JObject = JObject.Parse(listBody)
+        Dim listItems As JArray = TryCast(listObj("value"), JArray)
+        If listItems Is Nothing OrElse listItems.Count = 0 Then
+            hasMore = False
+        Else
+            For Each ef As JObject In listItems
+                Dim efName As String = ef("DisplayName").ToString()
+                Dim efId As String = ef("Id").ToString()
+                If Not existingFolders.ContainsKey(efName) Then
+                    existingFolders(efName) = efId
+                End If
+            Next
+            skip += top
+            If listItems.Count &lt; top Then hasMore = False
+        End If
+    Loop
 
-Do While hasMore
-    Dim listUrl As String = in_TargetBaseUrl.TrimEnd("/"c) &
-        "/odata/Folders?$top=" & top & "&$skip=" & skip
-    Dim listReq As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, listUrl)
-    listReq.Headers.TryAddWithoutValidation("Authorization", "Bearer " & in_TargetToken)
-    listReq.Headers.TryAddWithoutValidation("Accept", "application/json")
-    Dim listResp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(listReq).Result
-    Dim listBody As String = listResp.Content.ReadAsStringAsync().Result
-    Dim listObj As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(listBody)
-    Dim listItems As Newtonsoft.Json.Linq.JArray = TryCast(listObj("value"), Newtonsoft.Json.Linq.JArray)
-    If listItems Is Nothing OrElse listItems.Count = 0 Then
-        hasMore = False
-    Else
-        For Each ef As Newtonsoft.Json.Linq.JObject In listItems
-            Dim efName As String = ef("DisplayName").ToString()
-            Dim efId As String = ef("Id").ToString()
-            If Not existingFolders.ContainsKey(efName) Then
-                existingFolders(efName) = efId
-            End If
-        Next
-        skip += top
-        If listItems.Count < top Then hasMore = False
-    End If
-Loop
+    For Each srcFolder As JObject In srcFolders
+        Dim oldId As String = srcFolder("Id").ToString()
+        Dim displayName As String = srcFolder("DisplayName").ToString()
 
-' Create each source folder as a modern folder in target
-Dim created As Integer = 0
-Dim skipped As Integer = 0
+        Dim targetName As String = displayName
+        If folderMappings IsNot Nothing AndAlso folderMappings(displayName) IsNot Nothing Then
+            targetName = folderMappings(displayName).ToString()
+        End If
 
-For Each srcFolder As Newtonsoft.Json.Linq.JObject In srcFolders
-    Dim oldId As String = srcFolder("Id").ToString()
-    Dim displayName As String = srcFolder("DisplayName").ToString()
+        If existingFolders.ContainsKey(targetName) Then
+            idMapping(oldId) = existingFolders(targetName)
+            Console.WriteLine("[Import Folders] Skipping existing folder: " &amp; targetName)
+            Continue For
+        End If
 
-    ' Apply folder name mapping from config
-    Dim targetName As String = displayName
-    If folderMappings IsNot Nothing AndAlso folderMappings(displayName) IsNot Nothing Then
-        targetName = folderMappings(displayName).ToString()
-    End If
+        Dim body As New JObject()
+        body("DisplayName") = targetName
+        body("FullyQualifiedName") = targetName
+        body("Description") = If(srcFolder("Description") IsNot Nothing AndAlso
+            srcFolder("Description").Type &lt;> JTokenType.Null,
+            srcFolder("Description").ToString(), "")
+        body("ProvisionType") = "Modern"
+        body("PermissionModel") = "FineGrained"
+        body("FeedType") = "FolderLevel"
 
-    ' Check if folder already exists in target
-    If existingFolders.ContainsKey(targetName) Then
-        idMapping(oldId) = existingFolders(targetName)
-        skipped += 1
-        Console.WriteLine("[Import Folders] Skipping existing folder: " & targetName)
-        Continue For
-    End If
+        Dim postUrl As String = in_TargetBaseUrl.TrimEnd("/"c) &amp; "/odata/Folders"
+        Dim postReq As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, postUrl)
+        postReq.Headers.TryAddWithoutValidation("Authorization", "Bearer " &amp; in_TargetToken)
+        postReq.Headers.TryAddWithoutValidation("Accept", "application/json")
+        postReq.Content = New System.Net.Http.StringContent(body.ToString(), System.Text.Encoding.UTF8, "application/json")
 
-    ' Create folder as modern with FineGrained permission model
-    Dim body As New Newtonsoft.Json.Linq.JObject()
-    body("DisplayName") = targetName
-    body("FullyQualifiedName") = targetName
-    body("Description") = If(srcFolder("Description") IsNot Nothing AndAlso
-        srcFolder("Description").Type <> Newtonsoft.Json.Linq.JTokenType.Null,
-        srcFolder("Description").ToString(), "")
-    body("ProvisionType") = "Modern"
-    body("PermissionModel") = "FineGrained"
-    body("FeedType") = "FolderLevel"
+        Dim postResp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(postReq).Result
+        Dim postBody As String = postResp.Content.ReadAsStringAsync().Result
 
-    Dim postUrl As String = in_TargetBaseUrl.TrimEnd("/"c) & "/odata/Folders"
-    Dim postReq As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, postUrl)
-    postReq.Headers.TryAddWithoutValidation("Authorization", "Bearer " & in_TargetToken)
-    postReq.Headers.TryAddWithoutValidation("Accept", "application/json")
-    postReq.Content = New System.Net.Http.StringContent(
-        body.ToString(), System.Text.Encoding.UTF8, "application/json")
+        If postResp.IsSuccessStatusCode Then
+            Dim newFolder As JObject = JObject.Parse(postBody)
+            Dim newId As String = newFolder("Id").ToString()
+            idMapping(oldId) = newId
+            existingFolders(targetName) = newId
+            Console.WriteLine("[Import Folders] Created folder: " &amp; targetName &amp; " (old=" &amp; oldId &amp; " new=" &amp; newId &amp; ")")
+        Else
+            Console.WriteLine("[Import Folders] WARNING: Failed to create folder '" &amp;
+                targetName &amp; "': HTTP " &amp; CInt(postResp.StatusCode).ToString() &amp; " - " &amp; postBody)
+        End If
+    Next
 
-    Dim postResp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(postReq).Result
-    Dim postBody As String = postResp.Content.ReadAsStringAsync().Result
+    Return idMapping.ToString(Formatting.Indented)
+End Function)()</InArgument>
+      </Assign.Value>
+    </Assign>
 
-    If postResp.IsSuccessStatusCode Then
-        Dim newFolder As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(postBody)
-        Dim newId As String = newFolder("Id").ToString()
-        idMapping(oldId) = newId
-        existingFolders(targetName) = newId
-        created += 1
-        Console.WriteLine("[Import Folders] Created folder: " & targetName & " (old=" & oldId & " new=" & newId & ")")
-    Else
-        Console.WriteLine("[Import Folders] WARNING: Failed to create folder '" &
-            targetName & "': HTTP " & CInt(postResp.StatusCode).ToString() & " - " & postBody)
-    End If
-Next
-
-v_FolderMappingJson = idMapping.ToString(Newtonsoft.Json.Formatting.Indented)
-Console.WriteLine("[Import Folders] Created: " & created & ", Skipped: " & skipped)
-        ]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
-
-    <ui:InvokeCode DisplayName="Save FolderIdMapping.json">
-      <ui:InvokeCode.Code>
-        <![CDATA[System.IO.File.WriteAllText(v_MappingPath, v_FolderMappingJson, System.Text.Encoding.UTF8)]]>
-      </ui:InvokeCode.Code>
-    </ui:InvokeCode>
+    <Assign DisplayName="Save FolderIdMapping.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">(Function()
+    System.IO.File.WriteAllText(v_MappingPath, v_FolderMappingJson, System.Text.Encoding.UTF8)
+    Return ""
+End Function)()</InArgument>
+      </Assign.Value>
+    </Assign>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Import Folders] FolderIdMapping.json saved to &quot; &amp; v_MappingPath]" DisplayName="Log: Complete" />
   </Sequence>
