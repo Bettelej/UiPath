@@ -1,0 +1,146 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="Export_Packages" VisualBasic.Settings="{x:Null}" sap2010:WorkflowViewState.IdRef="ActivityBuilder_1"
+  xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+  xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+  xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"
+  xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib"
+  xmlns:ui="http://schemas.uipath.com/workflow/activities"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>System</x:String>
+      <x:String>System.IO</x:String>
+      <x:String>System.Net.Http</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>Newtonsoft.Json</x:String>
+      <x:String>Newtonsoft.Json.Linq</x:String>
+      <x:String>UiPath.Core</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>mscorlib</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Core</AssemblyReference>
+      <AssemblyReference>System.Net.Http</AssemblyReference>
+      <AssemblyReference>Newtonsoft.Json</AssemblyReference>
+      <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <x:Members>
+    <x:Property Name="in_SourceBaseUrl" Type="InArgument(x:String)" />
+    <x:Property Name="in_SourceToken" Type="InArgument(x:String)" />
+    <x:Property Name="in_DataPath" Type="InArgument(x:String)" />
+  </x:Members>
+  <Sequence DisplayName="Export Step 5 - Packages">
+    <Sequence.Variables>
+      <Variable x:TypeArguments="x:String" Name="v_ResponseJson" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:Int32" Name="v_StatusCode" Default="0" />
+      <Variable x:TypeArguments="x:String" Name="v_OutputPath" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_PackagesDir" Default="&quot;&quot;" />
+    </Sequence.Variables>
+
+    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Export Packages] Fetching package list from source (tenant-level)...&quot;" DisplayName="Log: Start" />
+
+    <!-- Fetch package metadata (tenant-level, no folder context) -->
+    <ui:InvokeWorkflowFile WorkflowFileName="Shared_OrchestratorApiCall.xaml" DisplayName="GET /odata/Processes">
+      <ui:InvokeWorkflowFile.Arguments>
+        <ArgumentCollection>
+          <Argument Direction="In" Name="in_BaseUrl" Value="[in_SourceBaseUrl]" />
+          <Argument Direction="In" Name="in_Token" Value="[in_SourceToken]" />
+          <Argument Direction="In" Name="in_Endpoint" Value="&quot;/odata/Processes&quot;" />
+          <Argument Direction="In" Name="in_Method" Value="&quot;GET&quot;" />
+          <Argument Direction="In" Name="in_FolderId" Value="&quot;&quot;" />
+          <Argument Direction="In" Name="in_RequestBody" Value="&quot;&quot;" />
+          <Argument Direction="Out" Name="out_ResponseJson" Value="[v_ResponseJson]" />
+          <Argument Direction="Out" Name="out_StatusCode" Value="[v_StatusCode]" />
+        </ArgumentCollection>
+      </ui:InvokeWorkflowFile.Arguments>
+    </ui:InvokeWorkflowFile>
+
+    <Assign DisplayName="Set Output Path">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_OutputPath]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Export_Packages.json")]</InArgument></Assign.Value>
+    </Assign>
+    <Assign DisplayName="Set Packages Dir">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_PackagesDir]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Packages")]</InArgument></Assign.Value>
+    </Assign>
+
+    <ui:InvokeCode Language="VB" DisplayName="Save Export_Packages.json">
+      <ui:InvokeCode.Script>
+        <![CDATA[
+Dim packages As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson)
+System.IO.File.WriteAllText(v_OutputPath,
+    packages.ToString(Newtonsoft.Json.Formatting.Indented),
+    System.Text.Encoding.UTF8)
+        ]]>
+      </ui:InvokeCode.Script>
+    </ui:InvokeCode>
+
+    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="[&quot;[Export Packages] Saved metadata for &quot; &amp; Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson).Count.ToString() &amp; &quot; packages. Downloading .nupkg files...&quot;]" DisplayName="Log: Downloading" />
+
+    <!--
+      [REPLACE] Download each .nupkg file via the DownloadPackage endpoint.
+      The Orchestrator HTTP Request activity does not support binary downloads natively.
+      Use one of these approaches in UiPath Studio:
+
+      OPTION A - InvokeCode with HttpClient (shown below):
+        Endpoint: GET /odata/Processes/UiPath.Server.Configuration.OData.DownloadPackage(key='<PackageId>',version='<Version>')
+        Save binary response to Data/Packages/<PackageId>.<Version>.nupkg
+
+      OPTION B - PowerShell via InvokePowerShell activity:
+        Use Invoke-WebRequest or [System.Net.WebClient] with Authorization header
+
+      OPTION C - UiPath WebAPI HTTP Client activity (requires UiPath.WebAPI.Activities):
+        Set response type to Binary and save to file
+    -->
+    <ui:InvokeCode Language="VB" DisplayName="[REPLACE] Download .nupkg Files">
+      <ui:InvokeCode.Script>
+        <![CDATA[
+Dim packages As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson)
+Dim httpClient As New System.Net.Http.HttpClient()
+httpClient.Timeout = TimeSpan.FromMinutes(10)
+httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", "Bearer " & in_SourceToken)
+
+Dim downloaded As Integer = 0
+Dim failed As Integer = 0
+
+For Each pkg As Newtonsoft.Json.Linq.JObject In packages
+    Dim pkgId As String = pkg("Id").ToString()
+    ' Id format is typically "PackageName:Version"
+    Dim parts() As String = pkgId.Split(":"c)
+    Dim pkgName As String = parts(0)
+    Dim pkgVersion As String = If(parts.Length > 1, parts(1), "")
+
+    Dim fileName As String = pkgName & "." & pkgVersion & ".nupkg"
+    Dim filePath As String = System.IO.Path.Combine(v_PackagesDir, fileName)
+
+    If System.IO.File.Exists(filePath) Then
+        Continue For
+    End If
+
+    Try
+        Dim url As String = in_SourceBaseUrl.TrimEnd("/"c) &
+            "/odata/Processes/UiPath.Server.Configuration.OData.DownloadPackage(key='" &
+            pkgName & "',version='" & pkgVersion & "')"
+
+        Dim bytes() As Byte = httpClient.GetByteArrayAsync(url).Result
+        System.IO.File.WriteAllBytes(filePath, bytes)
+        downloaded += 1
+    Catch ex As Exception
+        failed += 1
+        ' Log individual package download failure but continue
+        Console.WriteLine("[Export Packages] WARNING: Failed to download " & pkgId & ": " & ex.Message)
+    End Try
+Next
+
+Console.WriteLine("[Export Packages] Downloaded: " & downloaded & ", Failed: " & failed)
+        ]]>
+      </ui:InvokeCode.Script>
+    </ui:InvokeCode>
+
+    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="[&quot;[Export Packages] Complete. Packages saved to &quot; &amp; v_PackagesDir]" DisplayName="Log: Complete" />
+  </Sequence>
+</Activity>

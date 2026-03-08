@@ -1,0 +1,176 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="Import_Triggers" VisualBasic.Settings="{x:Null}" sap2010:WorkflowViewState.IdRef="ActivityBuilder_1"
+  xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+  xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+  xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"
+  xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib"
+  xmlns:ui="http://schemas.uipath.com/workflow/activities"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>System</x:String>
+      <x:String>System.IO</x:String>
+      <x:String>System.Net.Http</x:String>
+      <x:String>System.Text</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>Newtonsoft.Json</x:String>
+      <x:String>Newtonsoft.Json.Linq</x:String>
+      <x:String>UiPath.Core</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>mscorlib</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Core</AssemblyReference>
+      <AssemblyReference>System.Net.Http</AssemblyReference>
+      <AssemblyReference>Newtonsoft.Json</AssemblyReference>
+      <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <x:Members>
+    <x:Property Name="in_TargetBaseUrl" Type="InArgument(x:String)" />
+    <x:Property Name="in_TargetToken" Type="InArgument(x:String)" />
+    <x:Property Name="in_DataPath" Type="InArgument(x:String)" />
+  </x:Members>
+  <Sequence DisplayName="Import Step 8 - Triggers">
+    <Sequence.Variables>
+      <Variable x:TypeArguments="x:String" Name="v_TriggersJson" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_FolderMappingJson" Default="&quot;{}&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_ReleaseKeyMappingJson" Default="&quot;{}&quot;" />
+    </Sequence.Variables>
+
+    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Triggers] Creating process schedule triggers in target (all created as Disabled)...&quot;" DisplayName="Log: Start" />
+
+    <ui:InvokeCode Language="VB" DisplayName="Read Input Files">
+      <ui:InvokeCode.Script>
+        <![CDATA[
+v_TriggersJson = System.IO.File.ReadAllText(
+    System.IO.Path.Combine(in_DataPath, "Export_Triggers.json"), System.Text.Encoding.UTF8)
+v_FolderMappingJson = System.IO.File.ReadAllText(
+    System.IO.Path.Combine(in_DataPath, "FolderIdMapping.json"), System.Text.Encoding.UTF8)
+v_ReleaseKeyMappingJson = System.IO.File.ReadAllText(
+    System.IO.Path.Combine(in_DataPath, "ReleaseKeyMapping.json"), System.Text.Encoding.UTF8)
+        ]]>
+      </ui:InvokeCode.Script>
+    </ui:InvokeCode>
+
+    <ui:InvokeCode Language="VB" DisplayName="Create Triggers in Target (Disabled)">
+      <ui:InvokeCode.Script>
+        <![CDATA[
+Dim triggers As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_TriggersJson)
+Dim folderIdMap As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(v_FolderMappingJson)
+Dim releaseKeyMap As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(v_ReleaseKeyMappingJson)
+
+Dim httpClient As New System.Net.Http.HttpClient()
+httpClient.Timeout = TimeSpan.FromSeconds(60)
+
+Dim created As Integer = 0
+Dim skippedNoRelease As Integer = 0
+Dim skippedNoFolder As Integer = 0
+Dim failed As Integer = 0
+
+For Each trigger As Newtonsoft.Json.Linq.JObject In triggers
+    Dim srcFolderId As String = If(trigger("_SourceFolderId") IsNot Nothing,
+        trigger("_SourceFolderId").ToString(), "")
+    Dim triggerName As String = If(trigger("Name") IsNot Nothing,
+        trigger("Name").ToString(), "UnnamedTrigger")
+    Dim oldReleaseKey As String = If(trigger("ReleaseKey") IsNot Nothing,
+        trigger("ReleaseKey").ToString(), "")
+
+    ' Validate folder mapping
+    Dim targetFolderId As String = ""
+    If folderIdMap(srcFolderId) IsNot Nothing Then
+        targetFolderId = folderIdMap(srcFolderId).ToString()
+    Else
+        Console.WriteLine("[Import Triggers] WARNING: No folder mapping for source folder " &
+            srcFolderId & ". Skipping trigger: " & triggerName)
+        skippedNoFolder += 1
+        Continue For
+    End If
+
+    ' Validate release key mapping
+    If String.IsNullOrEmpty(oldReleaseKey) OrElse releaseKeyMap(oldReleaseKey) Is Nothing Then
+        Console.WriteLine("[Import Triggers] WARNING: No release key mapping for key '" &
+            oldReleaseKey & "'. Skipping trigger: " & triggerName)
+        skippedNoRelease += 1
+        Continue For
+    End If
+
+    Dim newReleaseKey As String = releaseKeyMap(oldReleaseKey).ToString()
+
+    ' Build POST body preserving all schedule settings
+    Dim body As New Newtonsoft.Json.Linq.JObject()
+    body("Name") = triggerName
+    body("ReleaseKey") = newReleaseKey
+    body("Enabled") = False ' Safety: always create disabled, enable manually after verification
+
+    ' Copy schedule fields
+    If trigger("StartProcessCron") IsNot Nothing AndAlso
+       trigger("StartProcessCron").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
+        body("StartProcessCron") = trigger("StartProcessCron").ToString()
+    End If
+    If trigger("TimeZoneId") IsNot Nothing AndAlso
+       trigger("TimeZoneId").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
+        body("TimeZoneId") = trigger("TimeZoneId").ToString()
+    End If
+    If trigger("StopStrategy") IsNot Nothing AndAlso
+       trigger("StopStrategy").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
+        body("StopStrategy") = trigger("StopStrategy").ToString()
+    End If
+    If trigger("KillJobsIfNotStopped") IsNot Nothing AndAlso
+       trigger("KillJobsIfNotStopped").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
+        body("KillJobsIfNotStopped") = CBool(trigger("KillJobsIfNotStopped"))
+    End If
+    If trigger("StopProcessingAfterMinutes") IsNot Nothing AndAlso
+       trigger("StopProcessingAfterMinutes").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
+        body("StopProcessingAfterMinutes") = CInt(trigger("StopProcessingAfterMinutes"))
+    End If
+    If trigger("MaxConcurrentJobs") IsNot Nothing AndAlso
+       trigger("MaxConcurrentJobs").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
+        body("MaxConcurrentJobs") = CInt(trigger("MaxConcurrentJobs"))
+    End If
+    If trigger("InputArguments") IsNot Nothing AndAlso
+       trigger("InputArguments").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
+        body("InputArguments") = trigger("InputArguments").ToString()
+    End If
+    If trigger("StartStrategy") IsNot Nothing AndAlso
+       trigger("StartStrategy").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
+        body("StartStrategy") = CInt(trigger("StartStrategy"))
+    End If
+
+    Dim postUrl As String = in_TargetBaseUrl.TrimEnd("/"c) & "/odata/ProcessSchedules"
+    Dim postReq As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, postUrl)
+    postReq.Headers.TryAddWithoutValidation("Authorization", "Bearer " & in_TargetToken)
+    postReq.Headers.TryAddWithoutValidation("Accept", "application/json")
+    postReq.Headers.TryAddWithoutValidation("X-UIPATH-OrganizationUnitId", targetFolderId)
+    postReq.Content = New System.Net.Http.StringContent(
+        body.ToString(), System.Text.Encoding.UTF8, "application/json")
+
+    Dim postResp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(postReq).Result
+    Dim postBody As String = postResp.Content.ReadAsStringAsync().Result
+
+    If postResp.IsSuccessStatusCode Then
+        created += 1
+        Console.WriteLine("[Import Triggers] Created trigger (DISABLED): " & triggerName)
+    Else
+        Console.WriteLine("[Import Triggers] WARNING: Failed to create trigger '" & triggerName &
+            "': HTTP " & CInt(postResp.StatusCode).ToString() & " - " & postBody)
+        failed += 1
+    End If
+Next
+
+Console.WriteLine("[Import Triggers] Created (disabled): " & created &
+    ", Skipped (no folder): " & skippedNoFolder &
+    ", Skipped (no release): " & skippedNoRelease &
+    ", Failed: " & failed)
+Console.WriteLine("[Import Triggers] IMPORTANT: All triggers were created as DISABLED. " &
+    "Enable them manually in target Orchestrator after verifying processes.")
+        ]]>
+      </ui:InvokeCode.Script>
+    </ui:InvokeCode>
+
+    <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Triggers] Trigger import complete. All triggers are DISABLED - enable manually after verification.&quot;" DisplayName="Log: Complete" />
+  </Sequence>
+</Activity>
