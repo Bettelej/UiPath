@@ -1,0 +1,156 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="Import_Processes" VisualBasic.Settings="{x:Null}" sap2010:WorkflowViewState.IdRef="ActivityBuilder_1"
+  xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+  xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+  xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"
+  xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib"
+  xmlns:ui="http://schemas.uipath.com/workflow/activities"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>System</x:String>
+      <x:String>System.IO</x:String>
+      <x:String>System.Net.Http</x:String>
+      <x:String>System.Text</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>Newtonsoft.Json</x:String>
+      <x:String>Newtonsoft.Json.Linq</x:String>
+      <x:String>UiPath.Core</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>mscorlib</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Core</AssemblyReference>
+      <AssemblyReference>System.Net.Http</AssemblyReference>
+      <AssemblyReference>Newtonsoft.Json</AssemblyReference>
+      <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <x:Members>
+    <x:Property Name="in_TargetBaseUrl" Type="InArgument(x:String)" />
+    <x:Property Name="in_TargetToken" Type="InArgument(x:String)" />
+    <x:Property Name="in_DataPath" Type="InArgument(x:String)" />
+  </x:Members>
+  <Sequence DisplayName="Import Step 7 - Processes (Releases)">
+    <Sequence.Variables>
+      <Variable x:TypeArguments="x:String" Name="v_ProcessesJson" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_FolderMappingJson" Default="&quot;{}&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_ReleaseKeyMappingJson" Default="&quot;{}&quot;" />
+    </Sequence.Variables>
+
+    <ui:LogMessage Level="Info" Message="&quot;[Import Processes] Creating releases (process-package bindings) in target folders...&quot;" DisplayName="Log: Start" />
+
+    <ui:InvokeCode DisplayName="Read Input Files">
+      <ui:InvokeCode.Code>
+        <![CDATA[
+v_ProcessesJson = System.IO.File.ReadAllText(
+    System.IO.Path.Combine(in_DataPath, "Export_Processes.json"), System.Text.Encoding.UTF8)
+v_FolderMappingJson = System.IO.File.ReadAllText(
+    System.IO.Path.Combine(in_DataPath, "FolderIdMapping.json"), System.Text.Encoding.UTF8)
+        ]]>
+      </ui:InvokeCode.Code>
+    </ui:InvokeCode>
+
+    <ui:InvokeCode DisplayName="Create Releases and Save ReleaseKey Mapping">
+      <ui:InvokeCode.Code>
+        <![CDATA[
+Dim processes As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ProcessesJson)
+Dim folderIdMap As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(v_FolderMappingJson)
+
+' oldReleaseKey -> newReleaseKey mapping
+Dim releaseKeyMap As New Newtonsoft.Json.Linq.JObject()
+
+Dim httpClient As New System.Net.Http.HttpClient()
+httpClient.Timeout = TimeSpan.FromSeconds(60)
+
+Dim created As Integer = 0
+Dim failed As Integer = 0
+
+For Each proc As Newtonsoft.Json.Linq.JObject In processes
+    Dim srcFolderId As String = If(proc("_SourceFolderId") IsNot Nothing,
+        proc("_SourceFolderId").ToString(), "")
+    Dim releaseName As String = proc("Name").ToString()
+    Dim oldReleaseKey As String = If(proc("Key") IsNot Nothing,
+        proc("Key").ToString(), "")
+
+    Dim targetFolderId As String = ""
+    If folderIdMap(srcFolderId) IsNot Nothing Then
+        targetFolderId = folderIdMap(srcFolderId).ToString()
+    Else
+        Console.WriteLine("[Import Processes] WARNING: No folder mapping for source folder " &
+            srcFolderId & ". Skipping release: " & releaseName)
+        failed += 1
+        Continue For
+    End If
+
+    ' Build POST body for the release
+    Dim body As New Newtonsoft.Json.Linq.JObject()
+    body("Name") = releaseName
+    body("ProcessKey") = If(proc("ProcessKey") IsNot Nothing,
+        proc("ProcessKey").ToString(), "")
+    body("ProcessVersion") = If(proc("ProcessVersion") IsNot Nothing,
+        proc("ProcessVersion").ToString(), "")
+    body("Description") = If(proc("Description") IsNot Nothing AndAlso
+        proc("Description").Type <> Newtonsoft.Json.Linq.JTokenType.Null,
+        proc("Description").ToString(), "")
+    body("AutoUpdate") = False ' Safe default
+
+    If proc("EntryPointPath") IsNot Nothing AndAlso
+       proc("EntryPointPath").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
+        body("EntryPointPath") = proc("EntryPointPath").ToString()
+    End If
+
+    If proc("InputArguments") IsNot Nothing AndAlso
+       proc("InputArguments").Type <> Newtonsoft.Json.Linq.JTokenType.Null Then
+        body("InputArguments") = proc("InputArguments").ToString()
+    End If
+
+    Dim postUrl As String = in_TargetBaseUrl.TrimEnd("/"c) & "/odata/Releases"
+    Dim postReq As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, postUrl)
+    postReq.Headers.TryAddWithoutValidation("Authorization", "Bearer " & in_TargetToken)
+    postReq.Headers.TryAddWithoutValidation("Accept", "application/json")
+    postReq.Headers.TryAddWithoutValidation("X-UIPATH-OrganizationUnitId", targetFolderId)
+    postReq.Content = New System.Net.Http.StringContent(
+        body.ToString(), System.Text.Encoding.UTF8, "application/json")
+
+    Dim postResp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(postReq).Result
+    Dim postBody As String = postResp.Content.ReadAsStringAsync().Result
+
+    If postResp.IsSuccessStatusCode Then
+        Dim newRelease As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(postBody)
+        Dim newReleaseKey As String = If(newRelease("Key") IsNot Nothing,
+            newRelease("Key").ToString(), "")
+
+        If Not String.IsNullOrEmpty(oldReleaseKey) AndAlso Not String.IsNullOrEmpty(newReleaseKey) Then
+            releaseKeyMap(oldReleaseKey) = newReleaseKey
+        End If
+        created += 1
+        Console.WriteLine("[Import Processes] Created release: " & releaseName)
+    Else
+        Console.WriteLine("[Import Processes] WARNING: Failed to create release '" & releaseName &
+            "': HTTP " & CInt(postResp.StatusCode).ToString() & " - " & postBody)
+        failed += 1
+    End If
+Next
+
+v_ReleaseKeyMappingJson = releaseKeyMap.ToString(Newtonsoft.Json.Formatting.Indented)
+Console.WriteLine("[Import Processes] Created: " & created & ", Failed: " & failed)
+        ]]>
+      </ui:InvokeCode.Code>
+    </ui:InvokeCode>
+
+    <ui:InvokeCode DisplayName="Save ReleaseKeyMapping.json">
+      <ui:InvokeCode.Code>
+        <![CDATA[
+Dim mappingPath As String = System.IO.Path.Combine(in_DataPath, "ReleaseKeyMapping.json")
+System.IO.File.WriteAllText(mappingPath, v_ReleaseKeyMappingJson, System.Text.Encoding.UTF8)
+        ]]>
+      </ui:InvokeCode.Code>
+    </ui:InvokeCode>
+
+    <ui:LogMessage Level="Info" Message="&quot;[Import Processes] Releases import complete. ReleaseKeyMapping.json saved.&quot;" DisplayName="Log: Complete" />
+  </Sequence>
+</Activity>

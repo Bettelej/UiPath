@@ -1,0 +1,76 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="Export_Environments" VisualBasic.Settings="{x:Null}" sap2010:WorkflowViewState.IdRef="ActivityBuilder_1"
+  xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+  xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+  xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"
+  xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib"
+  xmlns:ui="http://schemas.uipath.com/workflow/activities"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>System</x:String>
+      <x:String>System.IO</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>Newtonsoft.Json</x:String>
+      <x:String>Newtonsoft.Json.Linq</x:String>
+      <x:String>UiPath.Core</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>mscorlib</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Core</AssemblyReference>
+      <AssemblyReference>Newtonsoft.Json</AssemblyReference>
+      <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <x:Members>
+    <x:Property Name="in_SourceBaseUrl" Type="InArgument(x:String)" />
+    <x:Property Name="in_SourceToken" Type="InArgument(x:String)" />
+    <x:Property Name="in_DataPath" Type="InArgument(x:String)" />
+  </x:Members>
+  <Sequence DisplayName="Export Step 2 - Environments">
+    <Sequence.Variables>
+      <Variable x:TypeArguments="x:String" Name="v_ResponseJson" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:Int32" Name="v_StatusCode" Default="0" />
+      <Variable x:TypeArguments="x:String" Name="v_OutputPath" Default="&quot;&quot;" />
+    </Sequence.Variables>
+
+    <ui:LogMessage Level="Info" Message="&quot;[Export Environments] Fetching all environments (with robot assignments) from source...&quot;" DisplayName="Log: Start" />
+
+    <ui:InvokeWorkflowFile WorkflowFileName="Shared_OrchestratorApiCall.xaml" DisplayName="GET /odata/Environments?$expand=Robots">
+      <ui:InvokeWorkflowFile.Arguments>
+        <scg:Dictionary x:TypeArguments="x:String, x:Object">
+          <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[in_SourceBaseUrl]</InArgument>
+          <InArgument x:TypeArguments="x:String" x:Key="in_Token">[in_SourceToken]</InArgument>
+          <InArgument x:TypeArguments="x:String" x:Key="in_Endpoint">"/odata/Environments?$expand=Robots"</InArgument>
+          <InArgument x:TypeArguments="x:String" x:Key="in_Method">"GET"</InArgument>
+          <InArgument x:TypeArguments="x:String" x:Key="in_FolderId">""</InArgument>
+          <InArgument x:TypeArguments="x:String" x:Key="in_RequestBody">""</InArgument>
+          <OutArgument x:TypeArguments="x:String" x:Key="out_ResponseJson">[v_ResponseJson]</OutArgument>
+          <OutArgument x:TypeArguments="x:Int32" x:Key="out_StatusCode">[v_StatusCode]</OutArgument>
+        </scg:Dictionary>
+      </ui:InvokeWorkflowFile.Arguments>
+    </ui:InvokeWorkflowFile>
+
+    <Assign DisplayName="Set Output Path">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_OutputPath]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Export_Environments.json")]</InArgument></Assign.Value>
+    </Assign>
+
+    <ui:InvokeCode DisplayName="Save Export_Environments.json">
+      <ui:InvokeCode.Code>
+        <![CDATA[
+Dim envs As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson)
+System.IO.File.WriteAllText(v_OutputPath,
+    envs.ToString(Newtonsoft.Json.Formatting.Indented),
+    System.Text.Encoding.UTF8)
+        ]]>
+      </ui:InvokeCode.Code>
+    </ui:InvokeCode>
+
+    <ui:LogMessage Level="Info" Message="[&quot;[Export Environments] Saved &quot; &amp; Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson).Count.ToString() &amp; &quot; environments to &quot; &amp; v_OutputPath]" DisplayName="Log: Complete" />
+  </Sequence>
+</Activity>
