@@ -67,7 +67,7 @@
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Libraries")]</InArgument></Assign.Value>
     </Assign>
 
-    <ui:InvokeCode Language="VB" DisplayName="Save Export_Libraries.json">
+    <ui:InvokeCode Language="VisualBasic" DisplayName="Save Export_Libraries.json">
       <ui:InvokeCode.Code>
         <![CDATA[
 Dim libs As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson)
@@ -86,7 +86,7 @@ System.IO.File.WriteAllText(v_OutputPath,
       Body: { "packageIdentifier": "<Id>", "version": "<Version>" }
       Or: GET /odata/Libraries/UiPath.Server.Configuration.OData.DownloadPackage(key='<Id>',version='<Version>')
     -->
-    <ui:InvokeCode Language="VB" DisplayName="[REPLACE] Download Library .nupkg Files">
+    <ui:InvokeCode Language="VisualBasic" DisplayName="[REPLACE] Download Library .nupkg Files">
       <ui:InvokeCode.Code>
         <![CDATA[
 Dim libs As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson)

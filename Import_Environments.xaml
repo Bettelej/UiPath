@@ -45,7 +45,7 @@
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Environments] Converting classic environments to modern subfolders...&quot;" DisplayName="Log: Start" />
 
-    <ui:InvokeCode Language="VB" DisplayName="Read Input Files">
+    <ui:InvokeCode Language="VisualBasic" DisplayName="Read Input Files">
       <ui:InvokeCode.Code>
         <![CDATA[
 v_EnvsJson = System.IO.File.ReadAllText(
@@ -57,7 +57,7 @@ v_EnvMappingPath = System.IO.Path.Combine(in_DataPath, "EnvToSubfolderMapping.js
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:InvokeCode Language="VB" DisplayName="Create Subfolders from Environments">
+    <ui:InvokeCode Language="VisualBasic" DisplayName="Create Subfolders from Environments">
       <ui:InvokeCode.Code>
         <![CDATA[
 Dim envs As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_EnvsJson)
@@ -149,7 +149,7 @@ Console.WriteLine("[Import Environments] Created: " & created & ", Skipped: " & 
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:InvokeCode Language="VB" DisplayName="Save EnvToSubfolderMapping.json">
+    <ui:InvokeCode Language="VisualBasic" DisplayName="Save EnvToSubfolderMapping.json">
       <ui:InvokeCode.Code>
         <![CDATA[System.IO.File.WriteAllText(v_EnvMappingPath, v_EnvMappingJson, System.Text.Encoding.UTF8)]]>
       </ui:InvokeCode.Code>

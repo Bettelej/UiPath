@@ -43,7 +43,7 @@
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Assets] Creating assets in target folders...&quot;" DisplayName="Log: Start" />
 
-    <ui:InvokeCode Language="VB" DisplayName="Read Input Files">
+    <ui:InvokeCode Language="VisualBasic" DisplayName="Read Input Files">
       <ui:InvokeCode.Code>
         <![CDATA[
 v_AssetsJson = System.IO.File.ReadAllText(
@@ -54,7 +54,7 @@ v_FolderMappingJson = System.IO.File.ReadAllText(
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:InvokeCode Language="VB" DisplayName="Create Assets in Target">
+    <ui:InvokeCode Language="VisualBasic" DisplayName="Create Assets in Target">
       <ui:InvokeCode.Code>
         <![CDATA[
 Dim assets As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_AssetsJson)
@@ -154,7 +154,7 @@ Console.WriteLine("[Import Assets] Created: " & created & ", Failed: " & failed 
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:InvokeCode Language="VB" DisplayName="Save CredentialReport_ManualAction.json">
+    <ui:InvokeCode Language="VisualBasic" DisplayName="Save CredentialReport_ManualAction.json">
       <ui:InvokeCode.Code>
         <![CDATA[
 Dim reportPath As String = System.IO.Path.Combine(in_DataPath, "CredentialReport_ManualAction.json")

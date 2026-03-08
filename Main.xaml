@@ -60,7 +60,7 @@
         <Sequence DisplayName="Migration Steps">
           <!-- Step 0: Load configuration -->
           <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] Starting Orchestrator migration. Loading configuration...&quot;" DisplayName="Log: Start" />
-          <ui:InvokeCode Language="VB" DisplayName="Load MigrationConfig.json">
+          <ui:InvokeCode Language="VisualBasic" DisplayName="Load MigrationConfig.json">
             <ui:InvokeCode.Code>
               <![CDATA[
 v_ConfigJson = System.IO.File.ReadAllText("MigrationConfig.json")
@@ -82,7 +82,7 @@ v_DataPath            = cfg("DataPath").ToString()
           </ui:InvokeCode>
 
           <!-- Step 0b: Create Data directories -->
-          <ui:InvokeCode Language="VB" DisplayName="Create Data Directories">
+          <ui:InvokeCode Language="VisualBasic" DisplayName="Create Data Directories">
             <ui:InvokeCode.Code>
               <![CDATA[
 System.IO.Directory.CreateDirectory(v_DataPath)
@@ -94,7 +94,7 @@ System.IO.Directory.CreateDirectory(System.IO.Path.Combine(v_DataPath, "Librarie
 
           <!-- Step 0c: Authenticate against Source Orchestrator -->
           <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] Authenticating against source Orchestrator...&quot;" DisplayName="Log: Auth Source" />
-          <ui:InvokeCode Language="VB" DisplayName="Get Source Token">
+          <ui:InvokeCode Language="VisualBasic" DisplayName="Get Source Token">
             <ui:InvokeCode.Code>
               <![CDATA[
 If v_SourceAuthType.ToUpper() = "APIKEY" Then
@@ -119,7 +119,7 @@ End If
 
           <!-- Step 0d: Authenticate against Target Orchestrator (OAuth) -->
           <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] Authenticating against target Orchestrator (OAuth)...&quot;" DisplayName="Log: Auth Target" />
-          <ui:InvokeCode Language="VB" DisplayName="Get Target Token (OAuth)">
+          <ui:InvokeCode Language="VisualBasic" DisplayName="Get Target Token (OAuth)">
             <ui:InvokeCode.Code>
               <![CDATA[
 Dim client As New System.Net.Http.HttpClient()
