@@ -45,16 +45,16 @@
 
     <ui:InvokeWorkflowFile WorkflowFileName="Shared_OrchestratorApiCall.xaml" DisplayName="GET /odata/Libraries">
       <ui:InvokeWorkflowFile.Arguments>
-        <ArgumentCollection>
-          <Argument Direction="In" Name="in_BaseUrl" Value="[in_SourceBaseUrl]" />
-          <Argument Direction="In" Name="in_Token" Value="[in_SourceToken]" />
-          <Argument Direction="In" Name="in_Endpoint" Value="&quot;/odata/Libraries&quot;" />
-          <Argument Direction="In" Name="in_Method" Value="&quot;GET&quot;" />
-          <Argument Direction="In" Name="in_FolderId" Value="&quot;&quot;" />
-          <Argument Direction="In" Name="in_RequestBody" Value="&quot;&quot;" />
-          <Argument Direction="Out" Name="out_ResponseJson" Value="[v_ResponseJson]" />
-          <Argument Direction="Out" Name="out_StatusCode" Value="[v_StatusCode]" />
-        </ArgumentCollection>
+        <scg:Dictionary x:TypeArguments="x:String, x:Object">
+          <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[in_SourceBaseUrl]</InArgument>
+          <InArgument x:TypeArguments="x:String" x:Key="in_Token">[in_SourceToken]</InArgument>
+          <InArgument x:TypeArguments="x:String" x:Key="in_Endpoint">"/odata/Libraries"</InArgument>
+          <InArgument x:TypeArguments="x:String" x:Key="in_Method">"GET"</InArgument>
+          <InArgument x:TypeArguments="x:String" x:Key="in_FolderId">""</InArgument>
+          <InArgument x:TypeArguments="x:String" x:Key="in_RequestBody">""</InArgument>
+          <OutArgument x:TypeArguments="x:String" x:Key="out_ResponseJson">[v_ResponseJson]</OutArgument>
+          <OutArgument x:TypeArguments="x:Int32" x:Key="out_StatusCode">[v_StatusCode]</OutArgument>
+        </scg:Dictionary>
       </ui:InvokeWorkflowFile.Arguments>
     </ui:InvokeWorkflowFile>
 
@@ -68,14 +68,14 @@
     </Assign>
 
     <ui:InvokeCode Language="VB" DisplayName="Save Export_Libraries.json">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 Dim libs As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson)
 System.IO.File.WriteAllText(v_OutputPath,
     libs.ToString(Newtonsoft.Json.Formatting.Indented),
     System.Text.Encoding.UTF8)
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="[&quot;[Export Libraries] Downloading .nupkg files to &quot; &amp; v_LibrariesDir]" DisplayName="Log: Downloading" />
@@ -87,7 +87,7 @@ System.IO.File.WriteAllText(v_OutputPath,
       Or: GET /odata/Libraries/UiPath.Server.Configuration.OData.DownloadPackage(key='<Id>',version='<Version>')
     -->
     <ui:InvokeCode Language="VB" DisplayName="[REPLACE] Download Library .nupkg Files">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 Dim libs As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson)
 Dim httpClient As New System.Net.Http.HttpClient()
@@ -126,7 +126,7 @@ Next
 
 Console.WriteLine("[Export Libraries] Downloaded: " & downloaded & ", Failed: " & failed)
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="[&quot;[Export Libraries] Complete. Libraries saved to &quot; &amp; v_LibrariesDir]" DisplayName="Log: Complete" />

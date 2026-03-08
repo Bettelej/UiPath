@@ -5,6 +5,7 @@
   xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
   xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"
   xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib"
+  xmlns:s="clr-namespace:System;assembly=mscorlib"
   xmlns:ui="http://schemas.uipath.com/workflow/activities"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <TextExpression.NamespacesForImplementation>
@@ -60,7 +61,7 @@
           <!-- Step 0: Load configuration -->
           <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] Starting Orchestrator migration. Loading configuration...&quot;" DisplayName="Log: Start" />
           <ui:InvokeCode Language="VB" DisplayName="Load MigrationConfig.json">
-            <ui:InvokeCode.Script>
+            <ui:InvokeCode.Code>
               <![CDATA[
 v_ConfigJson = System.IO.File.ReadAllText("MigrationConfig.json")
 Dim cfg As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(v_ConfigJson)
@@ -77,24 +78,24 @@ v_TargetClientSecret  = cfg("Target")("ClientSecret").ToString()
 v_TargetIdentityUrl   = cfg("Target")("IdentityServerUrl").ToString().TrimEnd("/"c)
 v_DataPath            = cfg("DataPath").ToString()
               ]]>
-            </ui:InvokeCode.Script>
+            </ui:InvokeCode.Code>
           </ui:InvokeCode>
 
           <!-- Step 0b: Create Data directories -->
           <ui:InvokeCode Language="VB" DisplayName="Create Data Directories">
-            <ui:InvokeCode.Script>
+            <ui:InvokeCode.Code>
               <![CDATA[
 System.IO.Directory.CreateDirectory(v_DataPath)
 System.IO.Directory.CreateDirectory(System.IO.Path.Combine(v_DataPath, "Packages"))
 System.IO.Directory.CreateDirectory(System.IO.Path.Combine(v_DataPath, "Libraries"))
               ]]>
-            </ui:InvokeCode.Script>
+            </ui:InvokeCode.Code>
           </ui:InvokeCode>
 
           <!-- Step 0c: Authenticate against Source Orchestrator -->
           <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] Authenticating against source Orchestrator...&quot;" DisplayName="Log: Auth Source" />
           <ui:InvokeCode Language="VB" DisplayName="Get Source Token">
-            <ui:InvokeCode.Script>
+            <ui:InvokeCode.Code>
               <![CDATA[
 If v_SourceAuthType.ToUpper() = "APIKEY" Then
     ' API key is used as bearer token directly
@@ -113,13 +114,13 @@ Else
     Throw New Exception("Unknown source AuthType: " & v_SourceAuthType & ". Supported: ApiKey, Basic")
 End If
               ]]>
-            </ui:InvokeCode.Script>
+            </ui:InvokeCode.Code>
           </ui:InvokeCode>
 
           <!-- Step 0d: Authenticate against Target Orchestrator (OAuth) -->
           <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] Authenticating against target Orchestrator (OAuth)...&quot;" DisplayName="Log: Auth Target" />
           <ui:InvokeCode Language="VB" DisplayName="Get Target Token (OAuth)">
-            <ui:InvokeCode.Script>
+            <ui:InvokeCode.Code>
               <![CDATA[
 Dim client As New System.Net.Http.HttpClient()
 Dim formData As New System.Collections.Generic.Dictionary(Of String, String)
@@ -135,7 +136,7 @@ Dim respBody As String = resp.Content.ReadAsStringAsync().Result
 Dim respJson As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(respBody)
 v_TargetToken = respJson("access_token").ToString()
               ]]>
-            </ui:InvokeCode.Script>
+            </ui:InvokeCode.Code>
           </ui:InvokeCode>
 
           <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] Authentication successful. Starting EXPORT phase...&quot;" DisplayName="Log: Export Phase Start" />
@@ -143,81 +144,81 @@ v_TargetToken = respJson("access_token").ToString()
           <!-- EXPORT PHASE -->
           <ui:InvokeWorkflowFile WorkflowFileName="Export_Folders.xaml" DisplayName="Step 1 - Export Folders">
             <ui:InvokeWorkflowFile.Arguments>
-              <ArgumentCollection>
-                <Argument Direction="In" Name="in_SourceBaseUrl" Value="[v_SourceBaseUrl]" />
-                <Argument Direction="In" Name="in_SourceToken" Value="[v_SourceToken]" />
-                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
-              </ArgumentCollection>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <InArgument x:TypeArguments="x:String" x:Key="in_SourceBaseUrl">[v_SourceBaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_SourceToken">[v_SourceToken]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
+              </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
           <ui:InvokeWorkflowFile WorkflowFileName="Export_Environments.xaml" DisplayName="Step 2 - Export Environments">
             <ui:InvokeWorkflowFile.Arguments>
-              <ArgumentCollection>
-                <Argument Direction="In" Name="in_SourceBaseUrl" Value="[v_SourceBaseUrl]" />
-                <Argument Direction="In" Name="in_SourceToken" Value="[v_SourceToken]" />
-                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
-              </ArgumentCollection>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <InArgument x:TypeArguments="x:String" x:Key="in_SourceBaseUrl">[v_SourceBaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_SourceToken">[v_SourceToken]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
+              </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
           <ui:InvokeWorkflowFile WorkflowFileName="Export_Assets.xaml" DisplayName="Step 3 - Export Assets">
             <ui:InvokeWorkflowFile.Arguments>
-              <ArgumentCollection>
-                <Argument Direction="In" Name="in_SourceBaseUrl" Value="[v_SourceBaseUrl]" />
-                <Argument Direction="In" Name="in_SourceToken" Value="[v_SourceToken]" />
-                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
-              </ArgumentCollection>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <InArgument x:TypeArguments="x:String" x:Key="in_SourceBaseUrl">[v_SourceBaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_SourceToken">[v_SourceToken]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
+              </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
           <ui:InvokeWorkflowFile WorkflowFileName="Export_Queues.xaml" DisplayName="Step 4 - Export Queues">
             <ui:InvokeWorkflowFile.Arguments>
-              <ArgumentCollection>
-                <Argument Direction="In" Name="in_SourceBaseUrl" Value="[v_SourceBaseUrl]" />
-                <Argument Direction="In" Name="in_SourceToken" Value="[v_SourceToken]" />
-                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
-              </ArgumentCollection>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <InArgument x:TypeArguments="x:String" x:Key="in_SourceBaseUrl">[v_SourceBaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_SourceToken">[v_SourceToken]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
+              </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
           <ui:InvokeWorkflowFile WorkflowFileName="Export_Packages.xaml" DisplayName="Step 5 - Export Packages">
             <ui:InvokeWorkflowFile.Arguments>
-              <ArgumentCollection>
-                <Argument Direction="In" Name="in_SourceBaseUrl" Value="[v_SourceBaseUrl]" />
-                <Argument Direction="In" Name="in_SourceToken" Value="[v_SourceToken]" />
-                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
-              </ArgumentCollection>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <InArgument x:TypeArguments="x:String" x:Key="in_SourceBaseUrl">[v_SourceBaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_SourceToken">[v_SourceToken]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
+              </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
           <ui:InvokeWorkflowFile WorkflowFileName="Export_Libraries.xaml" DisplayName="Step 6 - Export Libraries">
             <ui:InvokeWorkflowFile.Arguments>
-              <ArgumentCollection>
-                <Argument Direction="In" Name="in_SourceBaseUrl" Value="[v_SourceBaseUrl]" />
-                <Argument Direction="In" Name="in_SourceToken" Value="[v_SourceToken]" />
-                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
-              </ArgumentCollection>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <InArgument x:TypeArguments="x:String" x:Key="in_SourceBaseUrl">[v_SourceBaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_SourceToken">[v_SourceToken]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
+              </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
           <ui:InvokeWorkflowFile WorkflowFileName="Export_Processes.xaml" DisplayName="Step 7 - Export Processes">
             <ui:InvokeWorkflowFile.Arguments>
-              <ArgumentCollection>
-                <Argument Direction="In" Name="in_SourceBaseUrl" Value="[v_SourceBaseUrl]" />
-                <Argument Direction="In" Name="in_SourceToken" Value="[v_SourceToken]" />
-                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
-              </ArgumentCollection>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <InArgument x:TypeArguments="x:String" x:Key="in_SourceBaseUrl">[v_SourceBaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_SourceToken">[v_SourceToken]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
+              </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
           <ui:InvokeWorkflowFile WorkflowFileName="Export_Triggers.xaml" DisplayName="Step 8 - Export Triggers">
             <ui:InvokeWorkflowFile.Arguments>
-              <ArgumentCollection>
-                <Argument Direction="In" Name="in_SourceBaseUrl" Value="[v_SourceBaseUrl]" />
-                <Argument Direction="In" Name="in_SourceToken" Value="[v_SourceToken]" />
-                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
-              </ArgumentCollection>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <InArgument x:TypeArguments="x:String" x:Key="in_SourceBaseUrl">[v_SourceBaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_SourceToken">[v_SourceToken]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
+              </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
@@ -226,83 +227,83 @@ v_TargetToken = respJson("access_token").ToString()
           <!-- IMPORT PHASE -->
           <ui:InvokeWorkflowFile WorkflowFileName="Import_Folders.xaml" DisplayName="Step 1 - Import Folders">
             <ui:InvokeWorkflowFile.Arguments>
-              <ArgumentCollection>
-                <Argument Direction="In" Name="in_TargetBaseUrl" Value="[v_TargetBaseUrl]" />
-                <Argument Direction="In" Name="in_TargetToken" Value="[v_TargetToken]" />
-                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
-                <Argument Direction="In" Name="in_ConfigJson" Value="[v_ConfigJson]" />
-              </ArgumentCollection>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <InArgument x:TypeArguments="x:String" x:Key="in_TargetBaseUrl">[v_TargetBaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_TargetToken">[v_TargetToken]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_ConfigJson">[v_ConfigJson]</InArgument>
+              </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
           <ui:InvokeWorkflowFile WorkflowFileName="Import_Environments.xaml" DisplayName="Step 2 - Import Environments as Subfolders">
             <ui:InvokeWorkflowFile.Arguments>
-              <ArgumentCollection>
-                <Argument Direction="In" Name="in_TargetBaseUrl" Value="[v_TargetBaseUrl]" />
-                <Argument Direction="In" Name="in_TargetToken" Value="[v_TargetToken]" />
-                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
-                <Argument Direction="In" Name="in_ConfigJson" Value="[v_ConfigJson]" />
-              </ArgumentCollection>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <InArgument x:TypeArguments="x:String" x:Key="in_TargetBaseUrl">[v_TargetBaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_TargetToken">[v_TargetToken]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_ConfigJson">[v_ConfigJson]</InArgument>
+              </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
           <ui:InvokeWorkflowFile WorkflowFileName="Import_Assets.xaml" DisplayName="Step 3 - Import Assets">
             <ui:InvokeWorkflowFile.Arguments>
-              <ArgumentCollection>
-                <Argument Direction="In" Name="in_TargetBaseUrl" Value="[v_TargetBaseUrl]" />
-                <Argument Direction="In" Name="in_TargetToken" Value="[v_TargetToken]" />
-                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
-              </ArgumentCollection>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <InArgument x:TypeArguments="x:String" x:Key="in_TargetBaseUrl">[v_TargetBaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_TargetToken">[v_TargetToken]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
+              </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
           <ui:InvokeWorkflowFile WorkflowFileName="Import_Queues.xaml" DisplayName="Step 4 - Import Queues">
             <ui:InvokeWorkflowFile.Arguments>
-              <ArgumentCollection>
-                <Argument Direction="In" Name="in_TargetBaseUrl" Value="[v_TargetBaseUrl]" />
-                <Argument Direction="In" Name="in_TargetToken" Value="[v_TargetToken]" />
-                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
-              </ArgumentCollection>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <InArgument x:TypeArguments="x:String" x:Key="in_TargetBaseUrl">[v_TargetBaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_TargetToken">[v_TargetToken]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
+              </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
           <ui:InvokeWorkflowFile WorkflowFileName="Import_Packages.xaml" DisplayName="Step 5 - Import Packages">
             <ui:InvokeWorkflowFile.Arguments>
-              <ArgumentCollection>
-                <Argument Direction="In" Name="in_TargetBaseUrl" Value="[v_TargetBaseUrl]" />
-                <Argument Direction="In" Name="in_TargetToken" Value="[v_TargetToken]" />
-                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
-              </ArgumentCollection>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <InArgument x:TypeArguments="x:String" x:Key="in_TargetBaseUrl">[v_TargetBaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_TargetToken">[v_TargetToken]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
+              </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
           <ui:InvokeWorkflowFile WorkflowFileName="Import_Libraries.xaml" DisplayName="Step 6 - Import Libraries">
             <ui:InvokeWorkflowFile.Arguments>
-              <ArgumentCollection>
-                <Argument Direction="In" Name="in_TargetBaseUrl" Value="[v_TargetBaseUrl]" />
-                <Argument Direction="In" Name="in_TargetToken" Value="[v_TargetToken]" />
-                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
-              </ArgumentCollection>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <InArgument x:TypeArguments="x:String" x:Key="in_TargetBaseUrl">[v_TargetBaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_TargetToken">[v_TargetToken]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
+              </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
           <ui:InvokeWorkflowFile WorkflowFileName="Import_Processes.xaml" DisplayName="Step 7 - Import Processes">
             <ui:InvokeWorkflowFile.Arguments>
-              <ArgumentCollection>
-                <Argument Direction="In" Name="in_TargetBaseUrl" Value="[v_TargetBaseUrl]" />
-                <Argument Direction="In" Name="in_TargetToken" Value="[v_TargetToken]" />
-                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
-              </ArgumentCollection>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <InArgument x:TypeArguments="x:String" x:Key="in_TargetBaseUrl">[v_TargetBaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_TargetToken">[v_TargetToken]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
+              </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
           <ui:InvokeWorkflowFile WorkflowFileName="Import_Triggers.xaml" DisplayName="Step 8 - Import Triggers">
             <ui:InvokeWorkflowFile.Arguments>
-              <ArgumentCollection>
-                <Argument Direction="In" Name="in_TargetBaseUrl" Value="[v_TargetBaseUrl]" />
-                <Argument Direction="In" Name="in_TargetToken" Value="[v_TargetToken]" />
-                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
-              </ArgumentCollection>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <InArgument x:TypeArguments="x:String" x:Key="in_TargetBaseUrl">[v_TargetBaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_TargetToken">[v_TargetToken]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
+              </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
 
@@ -311,10 +312,10 @@ v_TargetToken = respJson("access_token").ToString()
         </Sequence>
       </TryCatch.Try>
       <TryCatch.Catches>
-        <Catch x:TypeArguments="x:Exception">
-          <ActivityAction x:TypeArguments="x:Exception">
+        <Catch x:TypeArguments="s:Exception">
+          <ActivityAction x:TypeArguments="s:Exception">
             <ActivityAction.Argument>
-              <DelegateInArgument x:TypeArguments="x:Exception" Name="migrationException" />
+              <DelegateInArgument x:TypeArguments="s:Exception" Name="migrationException" />
             </ActivityAction.Argument>
             <Sequence DisplayName="Handle Migration Error">
               <Assign DisplayName="Set Error Message">

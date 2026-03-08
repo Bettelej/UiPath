@@ -41,17 +41,17 @@
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Export Processes] Reading folder list and fetching releases per folder...&quot;" DisplayName="Log: Start" />
 
     <ui:InvokeCode Language="VB" DisplayName="Read Export_Folders.json">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 v_FoldersJson = System.IO.File.ReadAllText(
     System.IO.Path.Combine(in_DataPath, "Export_Folders.json"),
     System.Text.Encoding.UTF8)
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:InvokeCode Language="VB" DisplayName="Fetch Releases Per Folder">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 Dim folders As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_FoldersJson)
 Dim allProcesses As New Newtonsoft.Json.Linq.JArray()
@@ -103,7 +103,7 @@ Next
 
 v_AllProcessesJson = allProcesses.ToString(Newtonsoft.Json.Formatting.Indented)
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <Assign DisplayName="Set Output Path">
@@ -112,9 +112,9 @@ v_AllProcessesJson = allProcesses.ToString(Newtonsoft.Json.Formatting.Indented)
     </Assign>
 
     <ui:InvokeCode Language="VB" DisplayName="Save Export_Processes.json">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[System.IO.File.WriteAllText(v_OutputPath, v_AllProcessesJson, System.Text.Encoding.UTF8)]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="[&quot;[Export Processes] Saved &quot; &amp; Newtonsoft.Json.Linq.JArray.Parse(v_AllProcessesJson).Count.ToString() &amp; &quot; releases to &quot; &amp; v_OutputPath]" DisplayName="Log: Complete" />

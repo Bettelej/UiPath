@@ -57,7 +57,7 @@
       OPTION C - UiPath WebAPI HTTP Client activity with multipart support
     -->
     <ui:InvokeCode Language="VB" DisplayName="[REPLACE] Upload Package .nupkg Files">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 If Not System.IO.Directory.Exists(v_PackagesDir) Then
     Console.WriteLine("[Import Packages] WARNING: Packages directory not found: " & v_PackagesDir)
@@ -110,7 +110,7 @@ Next
 
 Console.WriteLine("[Import Packages] Uploaded: " & uploaded & ", Failed: " & failed)
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Packages] Package upload complete.&quot;" DisplayName="Log: Complete" />

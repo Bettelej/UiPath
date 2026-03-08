@@ -46,16 +46,16 @@
     <!-- Fetch package metadata (tenant-level, no folder context) -->
     <ui:InvokeWorkflowFile WorkflowFileName="Shared_OrchestratorApiCall.xaml" DisplayName="GET /odata/Processes">
       <ui:InvokeWorkflowFile.Arguments>
-        <ArgumentCollection>
-          <Argument Direction="In" Name="in_BaseUrl" Value="[in_SourceBaseUrl]" />
-          <Argument Direction="In" Name="in_Token" Value="[in_SourceToken]" />
-          <Argument Direction="In" Name="in_Endpoint" Value="&quot;/odata/Processes&quot;" />
-          <Argument Direction="In" Name="in_Method" Value="&quot;GET&quot;" />
-          <Argument Direction="In" Name="in_FolderId" Value="&quot;&quot;" />
-          <Argument Direction="In" Name="in_RequestBody" Value="&quot;&quot;" />
-          <Argument Direction="Out" Name="out_ResponseJson" Value="[v_ResponseJson]" />
-          <Argument Direction="Out" Name="out_StatusCode" Value="[v_StatusCode]" />
-        </ArgumentCollection>
+        <scg:Dictionary x:TypeArguments="x:String, x:Object">
+          <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[in_SourceBaseUrl]</InArgument>
+          <InArgument x:TypeArguments="x:String" x:Key="in_Token">[in_SourceToken]</InArgument>
+          <InArgument x:TypeArguments="x:String" x:Key="in_Endpoint">"/odata/Processes"</InArgument>
+          <InArgument x:TypeArguments="x:String" x:Key="in_Method">"GET"</InArgument>
+          <InArgument x:TypeArguments="x:String" x:Key="in_FolderId">""</InArgument>
+          <InArgument x:TypeArguments="x:String" x:Key="in_RequestBody">""</InArgument>
+          <OutArgument x:TypeArguments="x:String" x:Key="out_ResponseJson">[v_ResponseJson]</OutArgument>
+          <OutArgument x:TypeArguments="x:Int32" x:Key="out_StatusCode">[v_StatusCode]</OutArgument>
+        </scg:Dictionary>
       </ui:InvokeWorkflowFile.Arguments>
     </ui:InvokeWorkflowFile>
 
@@ -69,14 +69,14 @@
     </Assign>
 
     <ui:InvokeCode Language="VB" DisplayName="Save Export_Packages.json">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 Dim packages As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson)
 System.IO.File.WriteAllText(v_OutputPath,
     packages.ToString(Newtonsoft.Json.Formatting.Indented),
     System.Text.Encoding.UTF8)
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="[&quot;[Export Packages] Saved metadata for &quot; &amp; Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson).Count.ToString() &amp; &quot; packages. Downloading .nupkg files...&quot;]" DisplayName="Log: Downloading" />
@@ -97,7 +97,7 @@ System.IO.File.WriteAllText(v_OutputPath,
         Set response type to Binary and save to file
     -->
     <ui:InvokeCode Language="VB" DisplayName="[REPLACE] Download .nupkg Files">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 Dim packages As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson)
 Dim httpClient As New System.Net.Http.HttpClient()
@@ -138,7 +138,7 @@ Next
 
 Console.WriteLine("[Export Packages] Downloaded: " & downloaded & ", Failed: " & failed)
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="[&quot;[Export Packages] Complete. Packages saved to &quot; &amp; v_PackagesDir]" DisplayName="Log: Complete" />
