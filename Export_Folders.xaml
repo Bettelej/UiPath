@@ -60,7 +60,7 @@
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Export_Folders.json")]</InArgument></Assign.Value>
     </Assign>
 
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Save Export_Folders.json">
+    <ui:InvokeCode DisplayName="Save Export_Folders.json">
       <ui:InvokeCode.Code>
         <![CDATA[
 ' Parse and pretty-print the folder array before saving

@@ -43,7 +43,7 @@
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Processes] Creating releases (process-package bindings) in target folders...&quot;" DisplayName="Log: Start" />
 
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Read Input Files">
+    <ui:InvokeCode DisplayName="Read Input Files">
       <ui:InvokeCode.Code>
         <![CDATA[
 v_ProcessesJson = System.IO.File.ReadAllText(
@@ -54,7 +54,7 @@ v_FolderMappingJson = System.IO.File.ReadAllText(
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Create Releases and Save ReleaseKey Mapping">
+    <ui:InvokeCode DisplayName="Create Releases and Save ReleaseKey Mapping">
       <ui:InvokeCode.Code>
         <![CDATA[
 Dim processes As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ProcessesJson)
@@ -142,7 +142,7 @@ Console.WriteLine("[Import Processes] Created: " & created & ", Failed: " & fail
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:InvokeCode Language="VisualBasic" DisplayName="Save ReleaseKeyMapping.json">
+    <ui:InvokeCode DisplayName="Save ReleaseKeyMapping.json">
       <ui:InvokeCode.Code>
         <![CDATA[
 Dim mappingPath As String = System.IO.Path.Combine(in_DataPath, "ReleaseKeyMapping.json")
