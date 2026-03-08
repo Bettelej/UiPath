@@ -53,7 +53,7 @@
       Content-Type: multipart/form-data
     -->
     <ui:InvokeCode Language="VB" DisplayName="[REPLACE] Upload Library .nupkg Files">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 If Not System.IO.Directory.Exists(v_LibrariesDir) Then
     Console.WriteLine("[Import Libraries] WARNING: Libraries directory not found: " & v_LibrariesDir)
@@ -107,7 +107,7 @@ Next
 
 Console.WriteLine("[Import Libraries] Uploaded: " & uploaded & ", Failed: " & failed)
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Libraries] Library upload complete.&quot;" DisplayName="Log: Complete" />

@@ -44,18 +44,18 @@
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Assets] Creating assets in target folders...&quot;" DisplayName="Log: Start" />
 
     <ui:InvokeCode Language="VB" DisplayName="Read Input Files">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 v_AssetsJson = System.IO.File.ReadAllText(
     System.IO.Path.Combine(in_DataPath, "Export_Assets.json"), System.Text.Encoding.UTF8)
 v_FolderMappingJson = System.IO.File.ReadAllText(
     System.IO.Path.Combine(in_DataPath, "FolderIdMapping.json"), System.Text.Encoding.UTF8)
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:InvokeCode Language="VB" DisplayName="Create Assets in Target">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 Dim assets As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_AssetsJson)
 Dim folderIdMap As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(v_FolderMappingJson)
@@ -151,16 +151,16 @@ v_CredentialReportJson = credentialReport.ToString(Newtonsoft.Json.Formatting.In
 Console.WriteLine("[Import Assets] Created: " & created & ", Failed: " & failed &
     ", Credentials requiring manual password: " & credentialReport.Count.ToString())
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:InvokeCode Language="VB" DisplayName="Save CredentialReport_ManualAction.json">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 Dim reportPath As String = System.IO.Path.Combine(in_DataPath, "CredentialReport_ManualAction.json")
 System.IO.File.WriteAllText(reportPath, v_CredentialReportJson, System.Text.Encoding.UTF8)
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Assets] Complete. Check CredentialReport_ManualAction.json for credentials requiring manual password setup.&quot;" DisplayName="Log: Complete" />

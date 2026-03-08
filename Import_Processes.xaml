@@ -44,18 +44,18 @@
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Processes] Creating releases (process-package bindings) in target folders...&quot;" DisplayName="Log: Start" />
 
     <ui:InvokeCode Language="VB" DisplayName="Read Input Files">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 v_ProcessesJson = System.IO.File.ReadAllText(
     System.IO.Path.Combine(in_DataPath, "Export_Processes.json"), System.Text.Encoding.UTF8)
 v_FolderMappingJson = System.IO.File.ReadAllText(
     System.IO.Path.Combine(in_DataPath, "FolderIdMapping.json"), System.Text.Encoding.UTF8)
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:InvokeCode Language="VB" DisplayName="Create Releases and Save ReleaseKey Mapping">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 Dim processes As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_ProcessesJson)
 Dim folderIdMap As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(v_FolderMappingJson)
@@ -139,16 +139,16 @@ Next
 v_ReleaseKeyMappingJson = releaseKeyMap.ToString(Newtonsoft.Json.Formatting.Indented)
 Console.WriteLine("[Import Processes] Created: " & created & ", Failed: " & failed)
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:InvokeCode Language="VB" DisplayName="Save ReleaseKeyMapping.json">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 Dim mappingPath As String = System.IO.Path.Combine(in_DataPath, "ReleaseKeyMapping.json")
 System.IO.File.WriteAllText(mappingPath, v_ReleaseKeyMappingJson, System.Text.Encoding.UTF8)
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Processes] Releases import complete. ReleaseKeyMapping.json saved.&quot;" DisplayName="Log: Complete" />

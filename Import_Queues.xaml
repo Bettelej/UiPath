@@ -43,18 +43,18 @@
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Queues] Creating queue definitions in target folders...&quot;" DisplayName="Log: Start" />
 
     <ui:InvokeCode Language="VB" DisplayName="Read Input Files">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 v_QueuesJson = System.IO.File.ReadAllText(
     System.IO.Path.Combine(in_DataPath, "Export_Queues.json"), System.Text.Encoding.UTF8)
 v_FolderMappingJson = System.IO.File.ReadAllText(
     System.IO.Path.Combine(in_DataPath, "FolderIdMapping.json"), System.Text.Encoding.UTF8)
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:InvokeCode Language="VB" DisplayName="Create Queue Definitions in Target">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 Dim queues As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_QueuesJson)
 Dim folderIdMap As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(v_FolderMappingJson)
@@ -140,7 +140,7 @@ Next
 Console.WriteLine("[Import Queues] Created: " & created & ", Skipped (duplicate): " & skipped &
     ", Failed: " & failed)
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Queues] Queue definitions import complete.&quot;" DisplayName="Log: Complete" />

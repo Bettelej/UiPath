@@ -44,7 +44,7 @@
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Triggers] Creating process schedule triggers in target (all created as Disabled)...&quot;" DisplayName="Log: Start" />
 
     <ui:InvokeCode Language="VB" DisplayName="Read Input Files">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 v_TriggersJson = System.IO.File.ReadAllText(
     System.IO.Path.Combine(in_DataPath, "Export_Triggers.json"), System.Text.Encoding.UTF8)
@@ -53,11 +53,11 @@ v_FolderMappingJson = System.IO.File.ReadAllText(
 v_ReleaseKeyMappingJson = System.IO.File.ReadAllText(
     System.IO.Path.Combine(in_DataPath, "ReleaseKeyMapping.json"), System.Text.Encoding.UTF8)
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:InvokeCode Language="VB" DisplayName="Create Triggers in Target (Disabled)">
-      <ui:InvokeCode.Script>
+      <ui:InvokeCode.Code>
         <![CDATA[
 Dim triggers As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_TriggersJson)
 Dim folderIdMap As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(v_FolderMappingJson)
@@ -168,7 +168,7 @@ Console.WriteLine("[Import Triggers] Created (disabled): " & created &
 Console.WriteLine("[Import Triggers] IMPORTANT: All triggers were created as DISABLED. " &
     "Enable them manually in target Orchestrator after verifying processes.")
         ]]>
-      </ui:InvokeCode.Script>
+      </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Triggers] Trigger import complete. All triggers are DISABLED - enable manually after verification.&quot;" DisplayName="Log: Complete" />
