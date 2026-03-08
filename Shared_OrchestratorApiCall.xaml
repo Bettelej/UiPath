@@ -1,0 +1,204 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="Shared_OrchestratorApiCall" VisualBasic.Settings="{x:Null}" sap2010:WorkflowViewState.IdRef="ActivityBuilder_1"
+  xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+  xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+  xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"
+  xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib"
+  xmlns:ui="http://schemas.uipath.com/workflow/activities"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>System</x:String>
+      <x:String>System.IO</x:String>
+      <x:String>System.Net.Http</x:String>
+      <x:String>System.Text</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Linq</x:String>
+      <x:String>Newtonsoft.Json</x:String>
+      <x:String>Newtonsoft.Json.Linq</x:String>
+      <x:String>UiPath.Core</x:String>
+      <x:String>UiPath.Core.Activities</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>mscorlib</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Core</AssemblyReference>
+      <AssemblyReference>System.Net.Http</AssemblyReference>
+      <AssemblyReference>Newtonsoft.Json</AssemblyReference>
+      <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <!-- Arguments -->
+  <x:Members>
+    <x:Property Name="in_BaseUrl" Type="InArgument(x:String)" />
+    <x:Property Name="in_Token" Type="InArgument(x:String)" />
+    <x:Property Name="in_Endpoint" Type="InArgument(x:String)" />
+    <x:Property Name="in_Method" Type="InArgument(x:String)" />
+    <x:Property Name="in_FolderId" Type="InArgument(x:String)" />
+    <x:Property Name="in_RequestBody" Type="InArgument(x:String)" />
+    <x:Property Name="out_ResponseJson" Type="OutArgument(x:String)" />
+    <x:Property Name="out_StatusCode" Type="OutArgument(x:Int32)" />
+  </x:Members>
+  <Sequence DisplayName="Shared - Orchestrator API Call" sap2010:WorkflowViewState.IdRef="Sequence_1">
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
+    <Sequence.Variables>
+      <Variable x:TypeArguments="x:Int32" Name="v_RetryCount" Default="0" />
+      <Variable x:TypeArguments="x:Boolean" Name="v_Success" Default="False" />
+      <Variable x:TypeArguments="x:String" Name="v_LastError" Default="&quot;&quot;" />
+    </Sequence.Variables>
+
+    <!-- Retry loop: up to 3 attempts -->
+    <While DisplayName="Retry Loop (max 3 attempts)">
+      <While.Condition>[v_RetryCount &lt; 3 AndAlso Not v_Success]</While.Condition>
+      <Sequence DisplayName="Attempt API Call">
+        <Assign DisplayName="Increment Retry Counter">
+          <Assign.To><OutArgument x:TypeArguments="x:Int32">[v_RetryCount]</OutArgument></Assign.To>
+          <Assign.Value><InArgument x:TypeArguments="x:Int32">[v_RetryCount + 1]</InArgument></Assign.Value>
+        </Assign>
+        <TryCatch DisplayName="TryCatch - API Attempt">
+          <TryCatch.Try>
+            <Sequence DisplayName="Execute HTTP Request">
+              <!--
+                [REPLACE] This InvokeCode block implements pagination and HTTP calls using
+                System.Net.Http.HttpClient. In production UiPath Studio you may replace this
+                with the built-in "HTTP Client" or "Orchestrator HTTP Request" activities for
+                better credential management and native retry support.
+
+                Behaviour:
+                  - GET requests: paginate via $top=100&$skip=N until no more items returned.
+                    Collects all items into a JArray and serialises to out_ResponseJson.
+                  - POST/PUT/DELETE: single call, returns raw response body in out_ResponseJson.
+                  - Sets out_StatusCode to the HTTP status of the last call.
+                  - X-UIPATH-OrganizationUnitId header added when in_FolderId is non-empty.
+              -->
+              <ui:InvokeCode Language="VB" DisplayName="[REPLACE] HTTP Request with Pagination">
+                <ui:InvokeCode.Script>
+                  <![CDATA[
+Dim httpClient As New System.Net.Http.HttpClient()
+httpClient.Timeout = TimeSpan.FromSeconds(60)
+
+Dim allItems As New Newtonsoft.Json.Linq.JArray()
+Dim skip As Integer = 0
+Dim top As Integer = 100
+Dim hasMore As Boolean = True
+Dim lastStatusCode As Integer = 0
+Dim lastResponseBody As String = ""
+
+Do While hasMore
+    Dim url As String = in_BaseUrl.TrimEnd("/"c) & in_Endpoint
+
+    ' Append pagination parameters for GET requests
+    If in_Method.ToUpper() = "GET" Then
+        Dim separator As String = If(url.Contains("?"), "&", "?")
+        url &= separator & "$top=" & top & "&$skip=" & skip
+    End If
+
+    Dim request As New System.Net.Http.HttpRequestMessage(
+        New System.Net.Http.HttpMethod(in_Method.ToUpper()), url)
+
+    ' Set Authorization header
+    request.Headers.TryAddWithoutValidation("Authorization", "Bearer " & in_Token)
+    request.Headers.TryAddWithoutValidation("Accept", "application/json")
+
+    ' Set folder context header for folder-scoped calls
+    If Not String.IsNullOrEmpty(in_FolderId) Then
+        request.Headers.TryAddWithoutValidation("X-UIPATH-OrganizationUnitId", in_FolderId)
+    End If
+
+    ' Set request body for POST/PUT
+    If Not String.IsNullOrEmpty(in_RequestBody) AndAlso
+       (in_Method.ToUpper() = "POST" OrElse in_Method.ToUpper() = "PUT") Then
+        request.Content = New System.Net.Http.StringContent(
+            in_RequestBody, System.Text.Encoding.UTF8, "application/json")
+    End If
+
+    Dim httpResponse As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(request).Result
+    lastStatusCode = CInt(httpResponse.StatusCode)
+    lastResponseBody = httpResponse.Content.ReadAsStringAsync().Result
+
+    If Not httpResponse.IsSuccessStatusCode Then
+        Throw New Exception("HTTP " & lastStatusCode.ToString() & " on " &
+            in_Method.ToUpper() & " " & url & ": " & lastResponseBody)
+    End If
+
+    If in_Method.ToUpper() = "GET" Then
+        Dim responseObj As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(lastResponseBody)
+        Dim items As Newtonsoft.Json.Linq.JArray = TryCast(responseObj("value"), Newtonsoft.Json.Linq.JArray)
+        If items Is Nothing OrElse items.Count = 0 Then
+            hasMore = False
+        Else
+            For Each item As Newtonsoft.Json.Linq.JToken In items
+                allItems.Add(item)
+            Next
+            skip += top
+            If items.Count < top Then hasMore = False
+        End If
+    Else
+        hasMore = False
+    End If
+Loop
+
+out_StatusCode = lastStatusCode
+
+If in_Method.ToUpper() = "GET" Then
+    out_ResponseJson = allItems.ToString()
+Else
+    out_ResponseJson = lastResponseBody
+End If
+                  ]]>
+                </ui:InvokeCode.Script>
+              </ui:InvokeCode>
+              <Assign DisplayName="Mark Success">
+                <Assign.To><OutArgument x:TypeArguments="x:Boolean">[v_Success]</OutArgument></Assign.To>
+                <Assign.Value><InArgument x:TypeArguments="x:Boolean">True</InArgument></Assign.Value>
+              </Assign>
+            </Sequence>
+          </TryCatch.Try>
+          <TryCatch.Catches>
+            <Catch x:TypeArguments="x:Exception">
+              <ActivityAction x:TypeArguments="x:Exception">
+                <ActivityAction.Argument>
+                  <DelegateInArgument x:TypeArguments="x:Exception" Name="apiEx" />
+                </ActivityAction.Argument>
+                <Sequence DisplayName="Handle API Error">
+                  <Assign DisplayName="Store Error">
+                    <Assign.To><OutArgument x:TypeArguments="x:String">[v_LastError]</OutArgument></Assign.To>
+                    <Assign.Value><InArgument x:TypeArguments="x:String">[apiEx.Message]</InArgument></Assign.Value>
+                  </Assign>
+                  <ui:LogMessage Level="[UiPath.Core.LogLevel.Warn]" Message="[&quot;[API] Attempt &quot; &amp; v_RetryCount.ToString() &amp; &quot; failed: &quot; &amp; v_LastError]" DisplayName="Log: Retry Warning" />
+                  <!-- Wait 5 seconds before retry (only if more retries remain) -->
+                  <If DisplayName="If More Retries Remain">
+                    <If.Condition>[v_RetryCount &lt; 3]</If.Condition>
+                    <If.Then>
+                      <ui:InvokeCode Language="VB" DisplayName="Wait 5s Before Retry">
+                        <ui:InvokeCode.Script>
+                          <![CDATA[System.Threading.Thread.Sleep(5000)]]>
+                        </ui:InvokeCode.Script>
+                      </ui:InvokeCode>
+                    </If.Then>
+                    <If.Else>
+                      <Throw DisplayName="Rethrow After Max Retries">
+                        <Throw.Exception>
+                          <InArgument x:TypeArguments="x:Exception">
+                            [New Exception("[API] All 3 retry attempts failed. Last error: " &amp; v_LastError)]
+                          </InArgument>
+                        </Throw.Exception>
+                      </Throw>
+                    </If.Else>
+                  </If>
+                </Sequence>
+              </ActivityAction>
+            </Catch>
+          </TryCatch.Catches>
+        </TryCatch>
+      </Sequence>
+    </While>
+  </Sequence>
+</Activity>

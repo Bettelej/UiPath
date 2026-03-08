@@ -1,65 +1,332 @@
-<Activity mc:Ignorable="sap sap2010" x:Class="Main" VisualBasic.Settings="{x:Null}" sap2010:WorkflowViewState.IdRef="ActivityBuilder_1" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Activity mc:Ignorable="sap sap2010" x:Class="Main" VisualBasic.Settings="{x:Null}" sap2010:WorkflowViewState.IdRef="ActivityBuilder_1"
+  xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+  xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+  xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"
+  xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib"
+  xmlns:ui="http://schemas.uipath.com/workflow/activities"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <TextExpression.NamespacesForImplementation>
     <sco:Collection x:TypeArguments="x:String">
-      <x:String>System.Activities</x:String>
-      <x:String>System.Activities.Statements</x:String>
-      <x:String>System.Activities.Expressions</x:String>
-      <x:String>System.Activities.Validation</x:String>
-      <x:String>System.Activities.XamlIntegration</x:String>
-      <x:String>Microsoft.VisualBasic</x:String>
-      <x:String>Microsoft.VisualBasic.Activities</x:String>
       <x:String>System</x:String>
-      <x:String>System.Collections</x:String>
-      <x:String>System.Collections.Generic</x:String>
-      <x:String>System.Collections.ObjectModel</x:String>
-      <x:String>System.Data</x:String>
-      <x:String>System.Diagnostics</x:String>
-      <x:String>System.Drawing</x:String>
       <x:String>System.IO</x:String>
+      <x:String>System.Net.Http</x:String>
+      <x:String>System.Text</x:String>
+      <x:String>System.Collections.Generic</x:String>
       <x:String>System.Linq</x:String>
-      <x:String>System.Net.Mail</x:String>
-      <x:String>System.Xml</x:String>
-      <x:String>System.Xml.Linq</x:String>
+      <x:String>Newtonsoft.Json</x:String>
+      <x:String>Newtonsoft.Json.Linq</x:String>
       <x:String>UiPath.Core</x:String>
       <x:String>UiPath.Core.Activities</x:String>
-      <x:String>System.Windows.Markup</x:String>
-      <x:String>GlobalVariablesNamespace</x:String>
-      <x:String>GlobalConstantsNamespace</x:String>
     </sco:Collection>
   </TextExpression.NamespacesForImplementation>
   <TextExpression.ReferencesForImplementation>
     <sco:Collection x:TypeArguments="AssemblyReference">
-      <AssemblyReference>Microsoft.VisualBasic</AssemblyReference>
       <AssemblyReference>mscorlib</AssemblyReference>
-      <AssemblyReference>PresentationCore</AssemblyReference>
-      <AssemblyReference>PresentationFramework</AssemblyReference>
       <AssemblyReference>System</AssemblyReference>
-      <AssemblyReference>System.Activities</AssemblyReference>
-      <AssemblyReference>System.ComponentModel.TypeConverter</AssemblyReference>
       <AssemblyReference>System.Core</AssemblyReference>
-      <AssemblyReference>System.Data</AssemblyReference>
-      <AssemblyReference>System.Data.Common</AssemblyReference>
-      <AssemblyReference>System.Data.DataSetExtensions</AssemblyReference>
-      <AssemblyReference>System.Drawing</AssemblyReference>
-      <AssemblyReference>System.Drawing.Common</AssemblyReference>
-      <AssemblyReference>System.Drawing.Primitives</AssemblyReference>
-      <AssemblyReference>System.Linq</AssemblyReference>
-      <AssemblyReference>System.Net.Mail</AssemblyReference>
-      <AssemblyReference>System.ObjectModel</AssemblyReference>
-      <AssemblyReference>System.Private.CoreLib</AssemblyReference>
-      <AssemblyReference>System.Xaml</AssemblyReference>
-      <AssemblyReference>System.Xml</AssemblyReference>
-      <AssemblyReference>System.Xml.Linq</AssemblyReference>
+      <AssemblyReference>System.Net.Http</AssemblyReference>
+      <AssemblyReference>Newtonsoft.Json</AssemblyReference>
       <AssemblyReference>UiPath.System.Activities</AssemblyReference>
       <AssemblyReference>UiPath.UiAutomation.Activities</AssemblyReference>
-      <AssemblyReference>WindowsBase</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
-  <Sequence DisplayName="Main Sequence" sap2010:WorkflowViewState.IdRef="Sequence_1">
+  <Sequence DisplayName="Main - Orchestrator Migration" sap2010:WorkflowViewState.IdRef="Sequence_1">
     <sap:WorkflowViewStateService.ViewState>
       <scg:Dictionary x:TypeArguments="x:String, x:Object">
         <x:Boolean x:Key="IsExpanded">True</x:Boolean>
       </scg:Dictionary>
     </sap:WorkflowViewStateService.ViewState>
+    <Sequence.Variables>
+      <Variable x:TypeArguments="x:String" Name="v_ConfigJson" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_SourceBaseUrl" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_SourceToken" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_SourceAuthType" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_SourceApiKey" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_SourceUsername" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_SourcePassword" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_TargetBaseUrl" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_TargetToken" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_TargetClientId" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_TargetClientSecret" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_TargetIdentityUrl" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_DataPath" Default="&quot;Data&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_ErrorMessage" Default="&quot;&quot;" />
+    </Sequence.Variables>
+    <TryCatch DisplayName="Migration TryCatch">
+      <TryCatch.Try>
+        <Sequence DisplayName="Migration Steps">
+          <!-- Step 0: Load configuration -->
+          <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] Starting Orchestrator migration. Loading configuration...&quot;" DisplayName="Log: Start" />
+          <ui:InvokeCode Language="VB" DisplayName="Load MigrationConfig.json">
+            <ui:InvokeCode.Script>
+              <![CDATA[
+v_ConfigJson = System.IO.File.ReadAllText("MigrationConfig.json")
+Dim cfg As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(v_ConfigJson)
+
+v_SourceBaseUrl      = cfg("Source")("BaseUrl").ToString().TrimEnd("/"c)
+v_SourceAuthType     = cfg("Source")("AuthType").ToString()
+v_SourceApiKey       = cfg("Source")("ApiKey").ToString()
+v_SourceUsername     = cfg("Source")("Username").ToString()
+v_SourcePassword     = cfg("Source")("Password").ToString()
+
+v_TargetBaseUrl       = cfg("Target")("BaseUrl").ToString().TrimEnd("/"c)
+v_TargetClientId      = cfg("Target")("ClientId").ToString()
+v_TargetClientSecret  = cfg("Target")("ClientSecret").ToString()
+v_TargetIdentityUrl   = cfg("Target")("IdentityServerUrl").ToString().TrimEnd("/"c)
+v_DataPath            = cfg("DataPath").ToString()
+              ]]>
+            </ui:InvokeCode.Script>
+          </ui:InvokeCode>
+
+          <!-- Step 0b: Create Data directories -->
+          <ui:InvokeCode Language="VB" DisplayName="Create Data Directories">
+            <ui:InvokeCode.Script>
+              <![CDATA[
+System.IO.Directory.CreateDirectory(v_DataPath)
+System.IO.Directory.CreateDirectory(System.IO.Path.Combine(v_DataPath, "Packages"))
+System.IO.Directory.CreateDirectory(System.IO.Path.Combine(v_DataPath, "Libraries"))
+              ]]>
+            </ui:InvokeCode.Script>
+          </ui:InvokeCode>
+
+          <!-- Step 0c: Authenticate against Source Orchestrator -->
+          <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] Authenticating against source Orchestrator...&quot;" DisplayName="Log: Auth Source" />
+          <ui:InvokeCode Language="VB" DisplayName="Get Source Token">
+            <ui:InvokeCode.Script>
+              <![CDATA[
+If v_SourceAuthType.ToUpper() = "APIKEY" Then
+    ' API key is used as bearer token directly
+    v_SourceToken = v_SourceApiKey
+ElseIf v_SourceAuthType.ToUpper() = "BASIC" Then
+    ' Basic auth: exchange credentials for token via /api/account/authenticate
+    Dim client As New System.Net.Http.HttpClient()
+    Dim body As String = Newtonsoft.Json.JsonConvert.SerializeObject(
+        New With {.tenancyName = "Default", .usernameOrEmailAddress = v_SourceUsername, .password = v_SourcePassword})
+    Dim content As New System.Net.Http.StringContent(body, System.Text.Encoding.UTF8, "application/json")
+    Dim resp As System.Net.Http.HttpResponseMessage = client.PostAsync(v_SourceBaseUrl & "/api/account/authenticate", content).Result
+    Dim respBody As String = resp.Content.ReadAsStringAsync().Result
+    Dim respJson As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(respBody)
+    v_SourceToken = respJson("result").ToString()
+Else
+    Throw New Exception("Unknown source AuthType: " & v_SourceAuthType & ". Supported: ApiKey, Basic")
+End If
+              ]]>
+            </ui:InvokeCode.Script>
+          </ui:InvokeCode>
+
+          <!-- Step 0d: Authenticate against Target Orchestrator (OAuth) -->
+          <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] Authenticating against target Orchestrator (OAuth)...&quot;" DisplayName="Log: Auth Target" />
+          <ui:InvokeCode Language="VB" DisplayName="Get Target Token (OAuth)">
+            <ui:InvokeCode.Script>
+              <![CDATA[
+Dim client As New System.Net.Http.HttpClient()
+Dim formData As New System.Collections.Generic.Dictionary(Of String, String)
+formData.Add("grant_type", "client_credentials")
+formData.Add("client_id", v_TargetClientId)
+formData.Add("client_secret", v_TargetClientSecret)
+Dim content As New System.Net.Http.FormUrlEncodedContent(formData)
+Dim resp As System.Net.Http.HttpResponseMessage = client.PostAsync(v_TargetIdentityUrl & "/connect/token", content).Result
+If Not resp.IsSuccessStatusCode Then
+    Throw New Exception("Target OAuth failed: " & CInt(resp.StatusCode).ToString() & " - " & resp.Content.ReadAsStringAsync().Result)
+End If
+Dim respBody As String = resp.Content.ReadAsStringAsync().Result
+Dim respJson As Newtonsoft.Json.Linq.JObject = Newtonsoft.Json.Linq.JObject.Parse(respBody)
+v_TargetToken = respJson("access_token").ToString()
+              ]]>
+            </ui:InvokeCode.Script>
+          </ui:InvokeCode>
+
+          <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] Authentication successful. Starting EXPORT phase...&quot;" DisplayName="Log: Export Phase Start" />
+
+          <!-- EXPORT PHASE -->
+          <ui:InvokeWorkflowFile WorkflowFileName="Export_Folders.xaml" DisplayName="Step 1 - Export Folders">
+            <ui:InvokeWorkflowFile.Arguments>
+              <ArgumentCollection>
+                <Argument Direction="In" Name="in_SourceBaseUrl" Value="[v_SourceBaseUrl]" />
+                <Argument Direction="In" Name="in_SourceToken" Value="[v_SourceToken]" />
+                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
+              </ArgumentCollection>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+
+          <ui:InvokeWorkflowFile WorkflowFileName="Export_Environments.xaml" DisplayName="Step 2 - Export Environments">
+            <ui:InvokeWorkflowFile.Arguments>
+              <ArgumentCollection>
+                <Argument Direction="In" Name="in_SourceBaseUrl" Value="[v_SourceBaseUrl]" />
+                <Argument Direction="In" Name="in_SourceToken" Value="[v_SourceToken]" />
+                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
+              </ArgumentCollection>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+
+          <ui:InvokeWorkflowFile WorkflowFileName="Export_Assets.xaml" DisplayName="Step 3 - Export Assets">
+            <ui:InvokeWorkflowFile.Arguments>
+              <ArgumentCollection>
+                <Argument Direction="In" Name="in_SourceBaseUrl" Value="[v_SourceBaseUrl]" />
+                <Argument Direction="In" Name="in_SourceToken" Value="[v_SourceToken]" />
+                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
+              </ArgumentCollection>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+
+          <ui:InvokeWorkflowFile WorkflowFileName="Export_Queues.xaml" DisplayName="Step 4 - Export Queues">
+            <ui:InvokeWorkflowFile.Arguments>
+              <ArgumentCollection>
+                <Argument Direction="In" Name="in_SourceBaseUrl" Value="[v_SourceBaseUrl]" />
+                <Argument Direction="In" Name="in_SourceToken" Value="[v_SourceToken]" />
+                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
+              </ArgumentCollection>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+
+          <ui:InvokeWorkflowFile WorkflowFileName="Export_Packages.xaml" DisplayName="Step 5 - Export Packages">
+            <ui:InvokeWorkflowFile.Arguments>
+              <ArgumentCollection>
+                <Argument Direction="In" Name="in_SourceBaseUrl" Value="[v_SourceBaseUrl]" />
+                <Argument Direction="In" Name="in_SourceToken" Value="[v_SourceToken]" />
+                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
+              </ArgumentCollection>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+
+          <ui:InvokeWorkflowFile WorkflowFileName="Export_Libraries.xaml" DisplayName="Step 6 - Export Libraries">
+            <ui:InvokeWorkflowFile.Arguments>
+              <ArgumentCollection>
+                <Argument Direction="In" Name="in_SourceBaseUrl" Value="[v_SourceBaseUrl]" />
+                <Argument Direction="In" Name="in_SourceToken" Value="[v_SourceToken]" />
+                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
+              </ArgumentCollection>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+
+          <ui:InvokeWorkflowFile WorkflowFileName="Export_Processes.xaml" DisplayName="Step 7 - Export Processes">
+            <ui:InvokeWorkflowFile.Arguments>
+              <ArgumentCollection>
+                <Argument Direction="In" Name="in_SourceBaseUrl" Value="[v_SourceBaseUrl]" />
+                <Argument Direction="In" Name="in_SourceToken" Value="[v_SourceToken]" />
+                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
+              </ArgumentCollection>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+
+          <ui:InvokeWorkflowFile WorkflowFileName="Export_Triggers.xaml" DisplayName="Step 8 - Export Triggers">
+            <ui:InvokeWorkflowFile.Arguments>
+              <ArgumentCollection>
+                <Argument Direction="In" Name="in_SourceBaseUrl" Value="[v_SourceBaseUrl]" />
+                <Argument Direction="In" Name="in_SourceToken" Value="[v_SourceToken]" />
+                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
+              </ArgumentCollection>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+
+          <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] EXPORT phase complete. Starting IMPORT phase...&quot;" DisplayName="Log: Import Phase Start" />
+
+          <!-- IMPORT PHASE -->
+          <ui:InvokeWorkflowFile WorkflowFileName="Import_Folders.xaml" DisplayName="Step 1 - Import Folders">
+            <ui:InvokeWorkflowFile.Arguments>
+              <ArgumentCollection>
+                <Argument Direction="In" Name="in_TargetBaseUrl" Value="[v_TargetBaseUrl]" />
+                <Argument Direction="In" Name="in_TargetToken" Value="[v_TargetToken]" />
+                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
+                <Argument Direction="In" Name="in_ConfigJson" Value="[v_ConfigJson]" />
+              </ArgumentCollection>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+
+          <ui:InvokeWorkflowFile WorkflowFileName="Import_Environments.xaml" DisplayName="Step 2 - Import Environments as Subfolders">
+            <ui:InvokeWorkflowFile.Arguments>
+              <ArgumentCollection>
+                <Argument Direction="In" Name="in_TargetBaseUrl" Value="[v_TargetBaseUrl]" />
+                <Argument Direction="In" Name="in_TargetToken" Value="[v_TargetToken]" />
+                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
+                <Argument Direction="In" Name="in_ConfigJson" Value="[v_ConfigJson]" />
+              </ArgumentCollection>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+
+          <ui:InvokeWorkflowFile WorkflowFileName="Import_Assets.xaml" DisplayName="Step 3 - Import Assets">
+            <ui:InvokeWorkflowFile.Arguments>
+              <ArgumentCollection>
+                <Argument Direction="In" Name="in_TargetBaseUrl" Value="[v_TargetBaseUrl]" />
+                <Argument Direction="In" Name="in_TargetToken" Value="[v_TargetToken]" />
+                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
+              </ArgumentCollection>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+
+          <ui:InvokeWorkflowFile WorkflowFileName="Import_Queues.xaml" DisplayName="Step 4 - Import Queues">
+            <ui:InvokeWorkflowFile.Arguments>
+              <ArgumentCollection>
+                <Argument Direction="In" Name="in_TargetBaseUrl" Value="[v_TargetBaseUrl]" />
+                <Argument Direction="In" Name="in_TargetToken" Value="[v_TargetToken]" />
+                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
+              </ArgumentCollection>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+
+          <ui:InvokeWorkflowFile WorkflowFileName="Import_Packages.xaml" DisplayName="Step 5 - Import Packages">
+            <ui:InvokeWorkflowFile.Arguments>
+              <ArgumentCollection>
+                <Argument Direction="In" Name="in_TargetBaseUrl" Value="[v_TargetBaseUrl]" />
+                <Argument Direction="In" Name="in_TargetToken" Value="[v_TargetToken]" />
+                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
+              </ArgumentCollection>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+
+          <ui:InvokeWorkflowFile WorkflowFileName="Import_Libraries.xaml" DisplayName="Step 6 - Import Libraries">
+            <ui:InvokeWorkflowFile.Arguments>
+              <ArgumentCollection>
+                <Argument Direction="In" Name="in_TargetBaseUrl" Value="[v_TargetBaseUrl]" />
+                <Argument Direction="In" Name="in_TargetToken" Value="[v_TargetToken]" />
+                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
+              </ArgumentCollection>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+
+          <ui:InvokeWorkflowFile WorkflowFileName="Import_Processes.xaml" DisplayName="Step 7 - Import Processes">
+            <ui:InvokeWorkflowFile.Arguments>
+              <ArgumentCollection>
+                <Argument Direction="In" Name="in_TargetBaseUrl" Value="[v_TargetBaseUrl]" />
+                <Argument Direction="In" Name="in_TargetToken" Value="[v_TargetToken]" />
+                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
+              </ArgumentCollection>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+
+          <ui:InvokeWorkflowFile WorkflowFileName="Import_Triggers.xaml" DisplayName="Step 8 - Import Triggers">
+            <ui:InvokeWorkflowFile.Arguments>
+              <ArgumentCollection>
+                <Argument Direction="In" Name="in_TargetBaseUrl" Value="[v_TargetBaseUrl]" />
+                <Argument Direction="In" Name="in_TargetToken" Value="[v_TargetToken]" />
+                <Argument Direction="In" Name="in_DataPath" Value="[v_DataPath]" />
+              </ArgumentCollection>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+
+          <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] IMPORT phase complete. Migration finished successfully!&quot;" DisplayName="Log: Migration Complete" />
+          <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Migration] IMPORTANT: Manual steps required - see CredentialReport_ManualAction.json and enable triggers manually.&quot;" DisplayName="Log: Manual Steps Reminder" />
+        </Sequence>
+      </TryCatch.Try>
+      <TryCatch.Catches>
+        <Catch x:TypeArguments="x:Exception">
+          <ActivityAction x:TypeArguments="x:Exception">
+            <ActivityAction.Argument>
+              <DelegateInArgument x:TypeArguments="x:Exception" Name="migrationException" />
+            </ActivityAction.Argument>
+            <Sequence DisplayName="Handle Migration Error">
+              <Assign DisplayName="Set Error Message">
+                <Assign.To><OutArgument x:TypeArguments="x:String">[v_ErrorMessage]</OutArgument></Assign.To>
+                <Assign.Value><InArgument x:TypeArguments="x:String">[migrationException.Message]</InArgument></Assign.Value>
+              </Assign>
+              <ui:LogMessage Level="[UiPath.Core.LogLevel.Error]" Message="[&quot;[Migration] FATAL ERROR: &quot; &amp; v_ErrorMessage]" DisplayName="Log: Fatal Error" />
+              <Rethrow />
+            </Sequence>
+          </ActivityAction>
+        </Catch>
+      </TryCatch.Catches>
+    </TryCatch>
   </Sequence>
 </Activity>
