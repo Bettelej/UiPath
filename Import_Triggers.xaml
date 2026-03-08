@@ -43,7 +43,7 @@
 
     <ui:LogMessage Level="[UiPath.Core.LogLevel.Info]" Message="&quot;[Import Triggers] Creating process schedule triggers in target (all created as Disabled)...&quot;" DisplayName="Log: Start" />
 
-    <ui:InvokeCode Language="VB" DisplayName="Read Input Files">
+    <ui:InvokeCode Language="VisualBasic" DisplayName="Read Input Files">
       <ui:InvokeCode.Code>
         <![CDATA[
 v_TriggersJson = System.IO.File.ReadAllText(
@@ -56,7 +56,7 @@ v_ReleaseKeyMappingJson = System.IO.File.ReadAllText(
       </ui:InvokeCode.Code>
     </ui:InvokeCode>
 
-    <ui:InvokeCode Language="VB" DisplayName="Create Triggers in Target (Disabled)">
+    <ui:InvokeCode Language="VisualBasic" DisplayName="Create Triggers in Target (Disabled)">
       <ui:InvokeCode.Code>
         <![CDATA[
 Dim triggers As Newtonsoft.Json.Linq.JArray = Newtonsoft.Json.Linq.JArray.Parse(v_TriggersJson)
