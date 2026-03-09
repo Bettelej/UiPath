@@ -5,6 +5,7 @@
   xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
   xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"
   xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib"
+  xmlns:nj="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json"
   xmlns:ui="http://schemas.uipath.com/workflow/activities"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <TextExpression.NamespacesForImplementation>
@@ -12,7 +13,6 @@
       <x:String>System</x:String>
       <x:String>System.IO</x:String>
       <x:String>System.Text</x:String>
-      <x:String>System.Net.Http</x:String>
       <x:String>System.Collections.Generic</x:String>
       <x:String>Newtonsoft.Json</x:String>
       <x:String>Newtonsoft.Json.Linq</x:String>
@@ -24,22 +24,31 @@
       <AssemblyReference>mscorlib</AssemblyReference>
       <AssemblyReference>System</AssemblyReference>
       <AssemblyReference>System.Core</AssemblyReference>
-      <AssemblyReference>System.Net.Http</AssemblyReference>
       <AssemblyReference>Newtonsoft.Json</AssemblyReference>
       <AssemblyReference>UiPath.System.Activities</AssemblyReference>
-      <AssemblyReference>System.Private.Uri</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
   <x:Members>
-    <x:Property Name="in_TargetBaseUrl" Type="InArgument(x:String)" />
-    <x:Property Name="in_TargetToken" Type="InArgument(x:String)" />
     <x:Property Name="in_DataPath" Type="InArgument(x:String)" />
   </x:Members>
   <Sequence DisplayName="Import Step 3 - Assets">
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
     <Sequence.Variables>
       <Variable x:TypeArguments="x:String" Name="v_AssetsJson" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_FolderMappingJson" Default="&quot;{}&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_CredentialReportJson" Default="&quot;[]&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_TargetFolderId" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_AssetName" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_AssetType" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_SrcFolderId" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_SrcFolderName" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_PostBody" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_PostResponse" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:Int32" Name="v_StatusCode" Default="0" />
       <Variable x:TypeArguments="x:String" Name="v_Dummy" Default="&quot;&quot;" />
     </Sequence.Variables>
 
@@ -54,92 +63,131 @@
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText(System.IO.Path.Combine(in_DataPath, "FolderIdMapping.json"), System.Text.Encoding.UTF8)]</InArgument></Assign.Value>
     </Assign>
 
-    <Assign DisplayName="Create Assets in Target">
-      <Assign.To><OutArgument x:TypeArguments="x:String">[v_CredentialReportJson]</OutArgument></Assign.To>
-      <Assign.Value>
-        <InArgument x:TypeArguments="x:String">(Function()
-    Dim assets As JArray = JArray.Parse(v_AssetsJson)
-    Dim folderIdMap As JObject = JObject.Parse(v_FolderMappingJson)
-    Dim credentialReport As New JArray()
-
-    Dim httpClient As New System.Net.Http.HttpClient()
-    httpClient.Timeout = TimeSpan.FromSeconds(60)
-
-    For Each asset As JObject In assets
-        Dim srcFolderId As String = If(asset("_SourceFolderId") IsNot Nothing, asset("_SourceFolderId").ToString(), "")
-        Dim srcFolderName As String = If(asset("_SourceFolderName") IsNot Nothing, asset("_SourceFolderName").ToString(), "")
-
-        Dim targetFolderId As String = ""
-        If folderIdMap(srcFolderId) IsNot Nothing Then
-            targetFolderId = folderIdMap(srcFolderId).ToString()
-        Else
-            Console.WriteLine("[Import Assets] WARNING: No folder mapping for source folder " &amp; srcFolderId &amp; ". Skipping asset: " &amp; asset("Name").ToString())
-            Continue For
-        End If
-
-        Dim assetType As String = If(asset("ValueType") IsNot Nothing, asset("ValueType").ToString(), "Text")
-        Dim assetName As String = asset("Name").ToString()
-
-        Dim body As New JObject()
-        body("Name") = assetName
-        body("Description") = If(asset("Description") IsNot Nothing AndAlso asset("Description").Type &lt;> JTokenType.Null, asset("Description").ToString(), "")
-        body("ValueType") = assetType
-        body("ValueScope") = "Global"
-
-        Select Case assetType
-            Case "Text"
-                body("StringValue") = If(asset("StringValue") IsNot Nothing, asset("StringValue").ToString(), "")
-            Case "Bool"
-                body("BoolValue") = If(asset("BoolValue") IsNot Nothing, CBool(asset("BoolValue")), False)
-            Case "Integer"
-                body("IntValue") = If(asset("IntValue") IsNot Nothing, CInt(asset("IntValue")), 0)
-            Case "KeyValueList"
-                body("KeyValueList") = If(asset("KeyValueList") IsNot Nothing, asset("KeyValueList"), New JArray())
-            Case "Credential"
-                body("CredentialUsername") = If(asset("CredentialUsername") IsNot Nothing, asset("CredentialUsername").ToString(), "")
-                body("CredentialPassword") = "CHANGE_ME_MANUALLY"
-                Dim reportEntry As New JObject()
-                reportEntry("FolderName") = srcFolderName
-                reportEntry("AssetName") = assetName
-                reportEntry("Username") = body("CredentialUsername")
-                reportEntry("Note") = "Password must be set manually in target Orchestrator"
-                credentialReport.Add(reportEntry)
-            Case Else
-                body("StringValue") = If(asset("StringValue") IsNot Nothing, asset("StringValue").ToString(), "")
-        End Select
-
-        Dim postUrl As String = in_TargetBaseUrl.TrimEnd("/"c) &amp; "/odata/Assets"
-        Dim postReq As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, postUrl)
-        postReq.Headers.TryAddWithoutValidation("Authorization", "Bearer " &amp; in_TargetToken)
-        postReq.Headers.TryAddWithoutValidation("Accept", "application/json")
-        postReq.Headers.TryAddWithoutValidation("X-UIPATH-OrganizationUnitId", targetFolderId)
-        postReq.Content = New System.Net.Http.StringContent(body.ToString(), System.Text.Encoding.UTF8, "application/json")
-
-        Dim postResp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(postReq).Result
-
-        If Not postResp.IsSuccessStatusCode Then
-            Dim errBody As String = postResp.Content.ReadAsStringAsync().Result
-            Console.WriteLine("[Import Assets] WARNING: Failed to create asset '" &amp; assetName &amp;
-                "' in folder " &amp; targetFolderId &amp; ": HTTP " &amp; CInt(postResp.StatusCode).ToString() &amp; " - " &amp; errBody)
-        End If
-    Next
-
-    Return credentialReport.ToString(Formatting.Indented)
+    <ForEach x:TypeArguments="nj:JToken" DisplayName="ForEach Asset" Values="[JArray.Parse(v_AssetsJson)]">
+      <ForEach.Body>
+        <ActivityAction x:TypeArguments="nj:JToken">
+          <ActivityAction.Argument>
+            <DelegateInArgument x:TypeArguments="nj:JToken" Name="assetToken" />
+          </ActivityAction.Argument>
+          <Sequence DisplayName="Process Asset">
+            <Assign DisplayName="Set asset info">
+              <Assign.To><OutArgument x:TypeArguments="x:String">[v_SrcFolderId]</OutArgument></Assign.To>
+              <Assign.Value><InArgument x:TypeArguments="x:String">[If(assetToken("_SourceFolderId") IsNot Nothing, assetToken("_SourceFolderId").ToString(), "")]</InArgument></Assign.Value>
+            </Assign>
+            <Assign DisplayName="Set SrcFolderName">
+              <Assign.To><OutArgument x:TypeArguments="x:String">[v_SrcFolderName]</OutArgument></Assign.To>
+              <Assign.Value><InArgument x:TypeArguments="x:String">[If(assetToken("_SourceFolderName") IsNot Nothing, assetToken("_SourceFolderName").ToString(), "")]</InArgument></Assign.Value>
+            </Assign>
+            <Assign DisplayName="Set AssetName">
+              <Assign.To><OutArgument x:TypeArguments="x:String">[v_AssetName]</OutArgument></Assign.To>
+              <Assign.Value><InArgument x:TypeArguments="x:String">[assetToken("Name").ToString()]</InArgument></Assign.Value>
+            </Assign>
+            <Assign DisplayName="Set AssetType">
+              <Assign.To><OutArgument x:TypeArguments="x:String">[v_AssetType]</OutArgument></Assign.To>
+              <Assign.Value><InArgument x:TypeArguments="x:String">[If(assetToken("ValueType") IsNot Nothing, assetToken("ValueType").ToString(), "Text")]</InArgument></Assign.Value>
+            </Assign>
+            <Assign DisplayName="Look up target folder ID">
+              <Assign.To><OutArgument x:TypeArguments="x:String">[v_TargetFolderId]</OutArgument></Assign.To>
+              <Assign.Value><InArgument x:TypeArguments="x:String">[If(JObject.Parse(v_FolderMappingJson)(v_SrcFolderId) IsNot Nothing, JObject.Parse(v_FolderMappingJson)(v_SrcFolderId).ToString(), "")]</InArgument></Assign.Value>
+            </Assign>
+            <If DisplayName="If folder mapped">
+              <If.Condition>[Not String.IsNullOrEmpty(v_TargetFolderId)]</If.Condition>
+              <If.Then>
+                <Sequence DisplayName="Create asset">
+                  <Assign DisplayName="Build POST body">
+                    <Assign.To><OutArgument x:TypeArguments="x:String">[v_PostBody]</OutArgument></Assign.To>
+                    <Assign.Value>
+                      <InArgument x:TypeArguments="x:String">(Function()
+    Dim asset As JObject = DirectCast(assetToken, JObject)
+    Dim body As New JObject()
+    body("Name") = v_AssetName
+    body("Description") = If(asset("Description") IsNot Nothing AndAlso asset("Description").Type &lt;> JTokenType.Null, asset("Description").ToString(), "")
+    body("ValueType") = v_AssetType
+    body("ValueScope") = "Global"
+    Select Case v_AssetType
+        Case "Text"
+            body("StringValue") = If(asset("StringValue") IsNot Nothing, asset("StringValue").ToString(), "")
+        Case "Bool"
+            body("BoolValue") = If(asset("BoolValue") IsNot Nothing, CBool(asset("BoolValue")), False)
+        Case "Integer"
+            body("IntValue") = If(asset("IntValue") IsNot Nothing, CInt(asset("IntValue")), 0)
+        Case "KeyValueList"
+            body("KeyValueList") = If(asset("KeyValueList") IsNot Nothing, asset("KeyValueList"), New JArray())
+        Case "Credential"
+            body("CredentialUsername") = If(asset("CredentialUsername") IsNot Nothing, asset("CredentialUsername").ToString(), "")
+            body("CredentialPassword") = "CHANGE_ME_MANUALLY"
+        Case Else
+            body("StringValue") = If(asset("StringValue") IsNot Nothing, asset("StringValue").ToString(), "")
+    End Select
+    Return body.ToString()
 End Function)()</InArgument>
-      </Assign.Value>
-    </Assign>
+                    </Assign.Value>
+                  </Assign>
+                  <ui:OrchestratorHttpRequest DisplayName="POST /odata/Assets" Method="POST">
+                    <ui:OrchestratorHttpRequest.Endpoint>
+                      <InArgument x:TypeArguments="x:String">"/odata/Assets"</InArgument>
+                    </ui:OrchestratorHttpRequest.Endpoint>
+                    <ui:OrchestratorHttpRequest.Body>
+                      <InArgument x:TypeArguments="x:String">[v_PostBody]</InArgument>
+                    </ui:OrchestratorHttpRequest.Body>
+                    <ui:OrchestratorHttpRequest.OrganizationUnitId>
+                      <InArgument x:TypeArguments="x:Int64">[CLng(v_TargetFolderId)]</InArgument>
+                    </ui:OrchestratorHttpRequest.OrganizationUnitId>
+                    <ui:OrchestratorHttpRequest.Response>
+                      <OutArgument x:TypeArguments="x:String">[v_PostResponse]</OutArgument>
+                    </ui:OrchestratorHttpRequest.Response>
+                    <ui:OrchestratorHttpRequest.StatusCode>
+                      <OutArgument x:TypeArguments="x:Int32">[v_StatusCode]</OutArgument>
+                    </ui:OrchestratorHttpRequest.StatusCode>
+                  </ui:OrchestratorHttpRequest>
+                  <If DisplayName="If Credential type">
+                    <If.Condition>[v_AssetType = "Credential"]</If.Condition>
+                    <If.Then>
+                      <Assign DisplayName="Add to credential report">
+                        <Assign.To><OutArgument x:TypeArguments="x:String">[v_CredentialReportJson]</OutArgument></Assign.To>
+                        <Assign.Value>
+                          <InArgument x:TypeArguments="x:String">(Function()
+    Dim report As JArray = JArray.Parse(v_CredentialReportJson)
+    Dim asset As JObject = DirectCast(assetToken, JObject)
+    Dim entry As New JObject()
+    entry("FolderName") = v_SrcFolderName
+    entry("AssetName") = v_AssetName
+    entry("Username") = If(asset("CredentialUsername") IsNot Nothing, asset("CredentialUsername").ToString(), "")
+    entry("Note") = "Password must be set manually in target Orchestrator"
+    report.Add(entry)
+    Return report.ToString()
+End Function)()</InArgument>
+                        </Assign.Value>
+                      </Assign>
+                    </If.Then>
+                  </If>
+                  <If DisplayName="If POST failed">
+                    <If.Condition>[v_StatusCode &lt; 200 OrElse v_StatusCode &gt;= 300]</If.Condition>
+                    <If.Then>
+                      <ui:LogMessage Level="Warn" Message="[&quot;[Import Assets] WARNING: Failed to create asset &apos;&quot; &amp; v_AssetName &amp; &quot;&apos;: HTTP &quot; &amp; v_StatusCode.ToString()]" DisplayName="Log: Asset Failed" />
+                    </If.Then>
+                  </If>
+                </Sequence>
+              </If.Then>
+              <If.Else>
+                <ui:LogMessage Level="Warn" Message="[&quot;[Import Assets] WARNING: No folder mapping for source folder &quot; &amp; v_SrcFolderId &amp; &quot;. Skipping: &quot; &amp; v_AssetName]" DisplayName="Log: No Mapping" />
+              </If.Else>
+            </If>
+          </Sequence>
+        </ActivityAction>
+      </ForEach.Body>
+    </ForEach>
 
     <Assign DisplayName="Save CredentialReport_ManualAction.json">
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
       <Assign.Value>
         <InArgument x:TypeArguments="x:String">(Function()
     Dim reportPath As String = System.IO.Path.Combine(in_DataPath, "CredentialReport_ManualAction.json")
-    System.IO.File.WriteAllText(reportPath, v_CredentialReportJson, System.Text.Encoding.UTF8)
+    System.IO.File.WriteAllText(reportPath, JArray.Parse(v_CredentialReportJson).ToString(Formatting.Indented), System.Text.Encoding.UTF8)
     Return ""
 End Function)()</InArgument>
       </Assign.Value>
     </Assign>
-
     <ui:LogMessage Level="Info" Message="[&quot;[Import Assets] Complete. Check CredentialReport_ManualAction.json for credentials requiring manual password setup.&quot;]" DisplayName="Log: Complete" />
   </Sequence>
 </Activity>

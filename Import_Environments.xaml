@@ -5,6 +5,7 @@
   xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
   xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"
   xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib"
+  xmlns:nj="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json"
   xmlns:ui="http://schemas.uipath.com/workflow/activities"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <TextExpression.NamespacesForImplementation>
@@ -12,7 +13,6 @@
       <x:String>System</x:String>
       <x:String>System.IO</x:String>
       <x:String>System.Text</x:String>
-      <x:String>System.Net.Http</x:String>
       <x:String>System.Collections.Generic</x:String>
       <x:String>Newtonsoft.Json</x:String>
       <x:String>Newtonsoft.Json.Linq</x:String>
@@ -24,24 +24,30 @@
       <AssemblyReference>mscorlib</AssemblyReference>
       <AssemblyReference>System</AssemblyReference>
       <AssemblyReference>System.Core</AssemblyReference>
-      <AssemblyReference>System.Net.Http</AssemblyReference>
       <AssemblyReference>Newtonsoft.Json</AssemblyReference>
       <AssemblyReference>UiPath.System.Activities</AssemblyReference>
-      <AssemblyReference>System.Private.Uri</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
   <x:Members>
-    <x:Property Name="in_TargetBaseUrl" Type="InArgument(x:String)" />
-    <x:Property Name="in_TargetToken" Type="InArgument(x:String)" />
     <x:Property Name="in_DataPath" Type="InArgument(x:String)" />
-    <x:Property Name="in_ConfigJson" Type="InArgument(x:String)" />
   </x:Members>
   <Sequence DisplayName="Import Step 2 - Environments to Subfolders">
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
     <Sequence.Variables>
       <Variable x:TypeArguments="x:String" Name="v_EnvsJson" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_FolderMappingJson" Default="&quot;{}&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_ConfigJson" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_EnvMappingJson" Default="&quot;{}&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_EnvMappingPath" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_PostBody" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_PostResponse" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:Int32" Name="v_StatusCode" Default="0" />
+      <Variable x:TypeArguments="x:String" Name="v_EnvName" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_ParentFolderId" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_Dummy" Default="&quot;&quot;" />
     </Sequence.Variables>
 
@@ -55,90 +61,118 @@
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_FolderMappingJson]</OutArgument></Assign.To>
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText(System.IO.Path.Combine(in_DataPath, "FolderIdMapping.json"), System.Text.Encoding.UTF8)]</InArgument></Assign.Value>
     </Assign>
+    <Assign DisplayName="Read MigrationConfig.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_ConfigJson]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText("MigrationConfig.json")]</InArgument></Assign.Value>
+    </Assign>
     <Assign DisplayName="Set EnvMappingPath">
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_EnvMappingPath]</OutArgument></Assign.To>
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "EnvToSubfolderMapping.json")]</InArgument></Assign.Value>
     </Assign>
 
-    <Assign DisplayName="Create Subfolders from Environments">
-      <Assign.To><OutArgument x:TypeArguments="x:String">[v_EnvMappingJson]</OutArgument></Assign.To>
-      <Assign.Value>
-        <InArgument x:TypeArguments="x:String">(Function()
-    Dim envs As JArray = JArray.Parse(v_EnvsJson)
-    Dim folderIdMap As JObject = JObject.Parse(v_FolderMappingJson)
-    Dim config As JObject = JObject.Parse(in_ConfigJson)
-    Dim envSubfolderConfig As JObject = TryCast(config("EnvironmentToSubfolderMappings"), JObject)
-    Dim envMapping As New JObject()
-
-    Dim httpClient As New System.Net.Http.HttpClient()
-    httpClient.Timeout = TimeSpan.FromSeconds(60)
-
-    Dim allTargetFolderIds As New System.Collections.Generic.List(Of String)
-    For Each prop As JProperty In folderIdMap.Properties()
-        allTargetFolderIds.Add(prop.Value.ToString())
+    <ForEach x:TypeArguments="nj:JToken" DisplayName="ForEach Environment" Values="[JArray.Parse(v_EnvsJson)]">
+      <ForEach.Body>
+        <ActivityAction x:TypeArguments="nj:JToken">
+          <ActivityAction.Argument>
+            <DelegateInArgument x:TypeArguments="nj:JToken" Name="envToken" />
+          </ActivityAction.Argument>
+          <Sequence DisplayName="Process Environment">
+            <Assign DisplayName="Set EnvName">
+              <Assign.To><OutArgument x:TypeArguments="x:String">[v_EnvName]</OutArgument></Assign.To>
+              <Assign.Value><InArgument x:TypeArguments="x:String">[envToken("Name").ToString()]</InArgument></Assign.Value>
+            </Assign>
+            <Assign DisplayName="Compute ParentFolderId">
+              <Assign.To><OutArgument x:TypeArguments="x:String">[v_ParentFolderId]</OutArgument></Assign.To>
+              <Assign.Value>
+                <InArgument x:TypeArguments="x:String">(Function()
+    Dim cfg As JObject = JObject.Parse(v_ConfigJson)
+    Dim envSubfolderConfig As JObject = TryCast(cfg("EnvironmentToSubfolderMappings"), JObject)
+    If envSubfolderConfig IsNot Nothing AndAlso envSubfolderConfig(v_EnvName) IsNot Nothing Then
+        Return envSubfolderConfig(v_EnvName).ToString()
+    End If
+    Dim folderMap As JObject = JObject.Parse(v_FolderMappingJson)
+    For Each prop As JProperty In folderMap.Properties()
+        Return prop.Value.ToString()
     Next
-
-    For Each env As JObject In envs
-        Dim envName As String = env("Name").ToString()
-        Dim envDesc As String = If(env("Description") IsNot Nothing AndAlso
-            env("Description").Type &lt;> JTokenType.Null,
-            env("Description").ToString(), "")
-
-        Dim parentFolderId As String = ""
-        If envSubfolderConfig IsNot Nothing AndAlso envSubfolderConfig(envName) IsNot Nothing Then
-            parentFolderId = envSubfolderConfig(envName).ToString()
-        End If
-        If String.IsNullOrEmpty(parentFolderId) AndAlso allTargetFolderIds.Count > 0 Then
-            parentFolderId = allTargetFolderIds(0)
-        End If
-        If String.IsNullOrEmpty(parentFolderId) Then
-            Console.WriteLine("[Import Environments] WARNING: No parent folder for environment: " &amp; envName &amp; ". Skipping.")
-            Continue For
-        End If
-
-        Dim body As New JObject()
-        body("DisplayName") = envName
-        body("FullyQualifiedName") = envName
-        body("Description") = envDesc
-        body("ProvisionType") = "Manual"
-        body("PermissionModel") = "InheritFromFolder"
-        body("ParentId") = CInt(parentFolderId)
-
-        Dim postUrl As String = in_TargetBaseUrl.TrimEnd("/"c) &amp; "/odata/Folders"
-        Dim postReq As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, postUrl)
-        postReq.Headers.TryAddWithoutValidation("Authorization", "Bearer " &amp; in_TargetToken)
-        postReq.Headers.TryAddWithoutValidation("Accept", "application/json")
-        postReq.Content = New System.Net.Http.StringContent(body.ToString(), System.Text.Encoding.UTF8, "application/json")
-
-        Dim postResp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(postReq).Result
-        Dim postBody As String = postResp.Content.ReadAsStringAsync().Result
-
-        If postResp.IsSuccessStatusCode Then
-            Dim newFolder As JObject = JObject.Parse(postBody)
-            Dim newId As String = newFolder("Id").ToString()
-            envMapping(envName) = newId
-            Console.WriteLine("[Import Environments] Created subfolder for env '" &amp; envName &amp; "' -> newId=" &amp; newId)
-        Else
-            Console.WriteLine("[Import Environments] WARNING: Failed for env '" &amp; envName &amp;
-                "': HTTP " &amp; CInt(postResp.StatusCode).ToString() &amp; " - " &amp; postBody)
-        End If
-    Next
-
-    Return envMapping.ToString(Formatting.Indented)
+    Return ""
 End Function)()</InArgument>
-      </Assign.Value>
-    </Assign>
+              </Assign.Value>
+            </Assign>
+            <If DisplayName="If ParentFolderId is set">
+              <If.Condition>[Not String.IsNullOrEmpty(v_ParentFolderId)]</If.Condition>
+              <If.Then>
+                <Sequence DisplayName="Create subfolder">
+                  <Assign DisplayName="Build POST body">
+                    <Assign.To><OutArgument x:TypeArguments="x:String">[v_PostBody]</OutArgument></Assign.To>
+                    <Assign.Value>
+                      <InArgument x:TypeArguments="x:String">(Function()
+    Dim body As New JObject()
+    body("DisplayName") = v_EnvName
+    body("FullyQualifiedName") = v_EnvName
+    body("Description") = If(envToken("Description") IsNot Nothing AndAlso envToken("Description").Type &lt;> JTokenType.Null, envToken("Description").ToString(), "")
+    body("ProvisionType") = "Manual"
+    body("PermissionModel") = "InheritFromFolder"
+    body("ParentId") = CInt(v_ParentFolderId)
+    Return body.ToString()
+End Function)()</InArgument>
+                    </Assign.Value>
+                  </Assign>
+                  <ui:OrchestratorHttpRequest DisplayName="POST /odata/Folders (subfolder)" Method="POST">
+                    <ui:OrchestratorHttpRequest.Endpoint>
+                      <InArgument x:TypeArguments="x:String">"/odata/Folders"</InArgument>
+                    </ui:OrchestratorHttpRequest.Endpoint>
+                    <ui:OrchestratorHttpRequest.Body>
+                      <InArgument x:TypeArguments="x:String">[v_PostBody]</InArgument>
+                    </ui:OrchestratorHttpRequest.Body>
+                    <ui:OrchestratorHttpRequest.Response>
+                      <OutArgument x:TypeArguments="x:String">[v_PostResponse]</OutArgument>
+                    </ui:OrchestratorHttpRequest.Response>
+                    <ui:OrchestratorHttpRequest.StatusCode>
+                      <OutArgument x:TypeArguments="x:Int32">[v_StatusCode]</OutArgument>
+                    </ui:OrchestratorHttpRequest.StatusCode>
+                  </ui:OrchestratorHttpRequest>
+                  <If DisplayName="If POST succeeded">
+                    <If.Condition>[v_StatusCode &gt;= 200 AndAlso v_StatusCode &lt; 300]</If.Condition>
+                    <If.Then>
+                      <Sequence DisplayName="Record subfolder">
+                        <Assign DisplayName="Add to EnvMapping">
+                          <Assign.To><OutArgument x:TypeArguments="x:String">[v_EnvMappingJson]</OutArgument></Assign.To>
+                          <Assign.Value>
+                            <InArgument x:TypeArguments="x:String">(Function()
+    Dim m As JObject = JObject.Parse(v_EnvMappingJson)
+    Dim newFolder As JObject = JObject.Parse(v_PostResponse)
+    m(v_EnvName) = newFolder("Id").ToString()
+    Return m.ToString()
+End Function)()</InArgument>
+                          </Assign.Value>
+                        </Assign>
+                        <ui:LogMessage Level="Info" Message="[&quot;[Import Environments] Created subfolder for env: &quot; &amp; v_EnvName]" DisplayName="Log: Subfolder Created" />
+                      </Sequence>
+                    </If.Then>
+                    <If.Else>
+                      <ui:LogMessage Level="Warn" Message="[&quot;[Import Environments] WARNING: Failed for env &apos;&quot; &amp; v_EnvName &amp; &quot;&apos;: HTTP &quot; &amp; v_StatusCode.ToString() &amp; &quot; - &quot; &amp; v_PostResponse]" DisplayName="Log: Subfolder Failed" />
+                    </If.Else>
+                  </If>
+                </Sequence>
+              </If.Then>
+              <If.Else>
+                <ui:LogMessage Level="Warn" Message="[&quot;[Import Environments] WARNING: No parent folder for env: &quot; &amp; v_EnvName &amp; &quot;. Skipping.&quot;]" DisplayName="Log: No Parent" />
+              </If.Else>
+            </If>
+          </Sequence>
+        </ActivityAction>
+      </ForEach.Body>
+    </ForEach>
 
     <Assign DisplayName="Save EnvToSubfolderMapping.json">
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
       <Assign.Value>
         <InArgument x:TypeArguments="x:String">(Function()
-    System.IO.File.WriteAllText(v_EnvMappingPath, v_EnvMappingJson, System.Text.Encoding.UTF8)
+    System.IO.File.WriteAllText(v_EnvMappingPath, JObject.Parse(v_EnvMappingJson).ToString(Formatting.Indented), System.Text.Encoding.UTF8)
     Return ""
 End Function)()</InArgument>
       </Assign.Value>
     </Assign>
-
     <ui:LogMessage Level="Info" Message="[&quot;[Import Environments] EnvToSubfolderMapping.json saved to &quot; &amp; v_EnvMappingPath]" DisplayName="Log: Complete" />
   </Sequence>
 </Activity>

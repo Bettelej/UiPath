@@ -11,8 +11,6 @@
     <sco:Collection x:TypeArguments="x:String">
       <x:String>System</x:String>
       <x:String>System.IO</x:String>
-      <x:String>System.Text</x:String>
-      <x:String>System.Net.Http</x:String>
       <x:String>System.Collections.Generic</x:String>
       <x:String>Newtonsoft.Json</x:String>
       <x:String>Newtonsoft.Json.Linq</x:String>
@@ -24,85 +22,45 @@
       <AssemblyReference>mscorlib</AssemblyReference>
       <AssemblyReference>System</AssemblyReference>
       <AssemblyReference>System.Core</AssemblyReference>
-      <AssemblyReference>System.Net.Http</AssemblyReference>
       <AssemblyReference>Newtonsoft.Json</AssemblyReference>
       <AssemblyReference>UiPath.System.Activities</AssemblyReference>
-      <AssemblyReference>System.Private.Uri</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
   <x:Members>
-    <x:Property Name="in_TargetBaseUrl" Type="InArgument(x:String)" />
-    <x:Property Name="in_TargetToken" Type="InArgument(x:String)" />
     <x:Property Name="in_DataPath" Type="InArgument(x:String)" />
   </x:Members>
   <Sequence DisplayName="Import Step 6 - Libraries">
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
     <Sequence.Variables>
-      <Variable x:TypeArguments="x:String" Name="v_LibrariesDir" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_Dir" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_Dummy" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_FilesDir" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_FilesExist" Default="&quot;&quot;" />
     </Sequence.Variables>
 
-    <ui:LogMessage Level="Info" Message="[&quot;[Import Libraries] Uploading library .nupkg files to target Orchestrator...&quot;]" DisplayName="Log: Start" />
+    <ui:LogMessage Level="Info" Message="[&quot;[Import Libraries] Checking for .nupkg files to upload...&quot;]" DisplayName="Log: Start" />
 
-    <Assign DisplayName="Set Libraries Dir">
-      <Assign.To><OutArgument x:TypeArguments="x:String">[v_LibrariesDir]</OutArgument></Assign.To>
+    <Assign DisplayName="Set Files Dir">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_FilesDir]</OutArgument></Assign.To>
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Libraries")]</InArgument></Assign.Value>
     </Assign>
-    <Assign DisplayName="Set v_Dir">
-      <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dir]</OutArgument></Assign.To>
-      <Assign.Value><InArgument x:TypeArguments="x:String">[v_LibrariesDir]</InArgument></Assign.Value>
+    <Assign DisplayName="Check files exist">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_FilesExist]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[If(System.IO.Directory.Exists(v_FilesDir) AndAlso System.IO.Directory.GetFiles(v_FilesDir, "*.nupkg").Length > 0, "yes", "no")]</InArgument></Assign.Value>
     </Assign>
 
-    <Assign DisplayName="Upload Library .nupkg Files">
-      <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
-      <Assign.Value>
-        <InArgument x:TypeArguments="x:String">(Function()
-    If Not System.IO.Directory.Exists(v_Dir) Then
-        Console.WriteLine("[Import Libraries] WARNING: Directory not found: " &amp; v_Dir)
-        Return ""
-    End If
+    <If DisplayName="If .nupkg files found">
+      <If.Condition>[v_FilesExist = "yes"]</If.Condition>
+      <If.Then>
+        <ui:LogMessage Level="Warn" Message="[&quot;[Import Libraries] Found .nupkg files in &quot; &amp; v_FilesDir &amp; &quot;. NOTE: Automatic upload via OrchestratorHttpRequest is not supported for binary/multipart uploads. Please upload libraries manually via the Orchestrator web UI (Tenant &gt; Packages) or use the UiPath CLI nuget push command.&quot;]" DisplayName="Log: Manual Upload Required" />
+      </If.Then>
+      <If.Else>
+        <ui:LogMessage Level="Warn" Message="[&quot;[Import Libraries] No .nupkg files found in &quot; &amp; v_FilesDir &amp; &quot;. If libraries need to be migrated, please manually download from source Orchestrator and upload to target via the web UI.&quot;]" DisplayName="Log: No Files Found" />
+      </If.Else>
+    </If>
 
-    Dim nupkgFiles() As String = System.IO.Directory.GetFiles(v_Dir, "*.nupkg")
-    If nupkgFiles.Length = 0 Then
-        Console.WriteLine("[Import Libraries] No .nupkg files found in " &amp; v_Dir)
-        Return ""
-    End If
-
-    Dim httpClient As New System.Net.Http.HttpClient()
-    httpClient.Timeout = TimeSpan.FromMinutes(10)
-    httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", "Bearer " &amp; in_TargetToken)
-
-    Dim uploadUrl As String = in_TargetBaseUrl.TrimEnd("/"c) &amp; "/odata/Libraries/UiPath.Server.Configuration.OData.UploadPackage"
-
-    For Each nupkgPath As String In nupkgFiles
-        Dim fileName As String = System.IO.Path.GetFileName(nupkgPath)
-        Try
-            Dim fileBytes() As Byte = System.IO.File.ReadAllBytes(nupkgPath)
-            Dim fileContent As New System.Net.Http.ByteArrayContent(fileBytes)
-            fileContent.Headers.ContentType = New System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream")
-
-            Dim multipart As New System.Net.Http.MultipartFormDataContent()
-            multipart.Add(fileContent, "file", fileName)
-
-            Dim postResp As System.Net.Http.HttpResponseMessage = httpClient.PostAsync(uploadUrl, multipart).Result
-            Dim postBody As String = postResp.Content.ReadAsStringAsync().Result
-
-            If postResp.IsSuccessStatusCode Then
-                Console.WriteLine("[Import Libraries] Uploaded: " &amp; fileName)
-            Else
-                Console.WriteLine("[Import Libraries] WARNING: Failed to upload '" &amp; fileName &amp;
-                    "': HTTP " &amp; CInt(postResp.StatusCode).ToString() &amp; " - " &amp; postBody)
-            End If
-        Catch ex As Exception
-            Console.WriteLine("[Import Libraries] ERROR uploading '" &amp; fileName &amp; "': " &amp; ex.Message)
-        End Try
-    Next
-
-    Return ""
-End Function)()</InArgument>
-      </Assign.Value>
-    </Assign>
-
-    <ui:LogMessage Level="Info" Message="[&quot;[Import Libraries] Library upload complete.&quot;]" DisplayName="Log: Complete" />
+    <ui:LogMessage Level="Info" Message="[&quot;[Import Libraries] Step complete (manual action may be required - see warnings above).&quot;]" DisplayName="Log: Complete" />
   </Sequence>
 </Activity>

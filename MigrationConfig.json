@@ -1,25 +1,9 @@
 {
-  "Source": {
-    "BaseUrl": "https://old-orchestrator.company.com",
-    "AuthType": "ApiKey",
-    "ApiKey": "YOUR_SOURCE_API_KEY_HERE",
-    "Username": "",
-    "Password": "",
-    "TenantName": "Default"
-  },
-  "Target": {
-    "BaseUrl": "https://new-orchestrator.company.com",
-    "AuthType": "OAuth",
-    "ClientId": "YOUR_CLIENT_ID_HERE",
-    "ClientSecret": "YOUR_CLIENT_SECRET_HERE",
-    "TenantName": "Default",
-    "IdentityServerUrl": "https://new-orchestrator.company.com/identity"
-  },
+  "DataPath": "Data",
   "FolderMappings": {
     "OldFolderName": "NewFolderName"
   },
   "EnvironmentToSubfolderMappings": {
     "EnvironmentName": "ParentFolderName"
-  },
-  "DataPath": "Data"
+  }
 }

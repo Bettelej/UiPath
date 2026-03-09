@@ -5,6 +5,7 @@
   xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
   xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"
   xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib"
+  xmlns:nj="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json"
   xmlns:ui="http://schemas.uipath.com/workflow/activities"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <TextExpression.NamespacesForImplementation>
@@ -12,7 +13,6 @@
       <x:String>System</x:String>
       <x:String>System.IO</x:String>
       <x:String>System.Text</x:String>
-      <x:String>System.Net.Http</x:String>
       <x:String>System.Collections.Generic</x:String>
       <x:String>Newtonsoft.Json</x:String>
       <x:String>Newtonsoft.Json.Linq</x:String>
@@ -24,104 +24,130 @@
       <AssemblyReference>mscorlib</AssemblyReference>
       <AssemblyReference>System</AssemblyReference>
       <AssemblyReference>System.Core</AssemblyReference>
-      <AssemblyReference>System.Net.Http</AssemblyReference>
       <AssemblyReference>Newtonsoft.Json</AssemblyReference>
       <AssemblyReference>UiPath.System.Activities</AssemblyReference>
-      <AssemblyReference>System.Private.Uri</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
   <x:Members>
-    <x:Property Name="in_SourceBaseUrl" Type="InArgument(x:String)" />
-    <x:Property Name="in_SourceToken" Type="InArgument(x:String)" />
     <x:Property Name="in_DataPath" Type="InArgument(x:String)" />
   </x:Members>
   <Sequence DisplayName="Export Step 8 - Triggers">
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
     <Sequence.Variables>
       <Variable x:TypeArguments="x:String" Name="v_FoldersJson" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_AllItemsJson" Default="&quot;[]&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_PageResponse" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:Int32" Name="v_StatusCode" Default="0" />
+      <Variable x:TypeArguments="x:Int32" Name="v_Skip" Default="0" />
+      <Variable x:TypeArguments="x:Boolean" Name="v_HasMore" Default="True" />
+      <Variable x:TypeArguments="x:Int32" Name="v_PageCount" Default="0" />
+      <Variable x:TypeArguments="x:String" Name="v_FolderId" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_FolderName" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_OutputPath" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_AllTriggersJson" Default="&quot;[]&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_Dummy" Default="&quot;&quot;" />
     </Sequence.Variables>
 
-    <ui:LogMessage Level="Info" Message="[&quot;[Export Triggers] Reading folder list and fetching process schedules per folder...&quot;]" DisplayName="Log: Start" />
+    <ui:LogMessage Level="Info" Message="[&quot;[Export Triggers] Reading folder list and fetching triggers per folder...&quot;]" DisplayName="Log: Start" />
 
     <Assign DisplayName="Read Export_Folders.json">
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_FoldersJson]</OutArgument></Assign.To>
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText(System.IO.Path.Combine(in_DataPath, "Export_Folders.json"), System.Text.Encoding.UTF8)]</InArgument></Assign.Value>
     </Assign>
 
-    <Assign DisplayName="Fetch Triggers Per Folder">
-      <Assign.To><OutArgument x:TypeArguments="x:String">[v_AllTriggersJson]</OutArgument></Assign.To>
-      <Assign.Value>
-        <InArgument x:TypeArguments="x:String">(Function()
-Dim folders As JArray = JArray.Parse(v_FoldersJson)
-Dim allItems As New JArray()
-Dim httpClient As New System.Net.Http.HttpClient()
-httpClient.Timeout = TimeSpan.FromSeconds(60)
-
-For Each folder As JObject In folders
-    Dim folderId As String = folder("Id").ToString()
-    Dim folderName As String = If(folder("FullyQualifiedName") IsNot Nothing AndAlso
-        folder("FullyQualifiedName").Type &lt;> JTokenType.Null,
-        folder("FullyQualifiedName").ToString(),
-        folder("DisplayName").ToString())
-
-    Dim skip As Integer = 0
-    Dim top As Integer = 100
-    Dim hasMore As Boolean = True
-
-    Do While hasMore
-        Dim url As String = in_SourceBaseUrl.TrimEnd("/"c) &amp;
-            "/odata/ProcessSchedules?$top=" &amp; top &amp; "&amp;$skip=" &amp; skip
-        Dim request As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, url)
-        request.Headers.TryAddWithoutValidation("Authorization", "Bearer " &amp; in_SourceToken)
-        request.Headers.TryAddWithoutValidation("Accept", "application/json")
-        request.Headers.TryAddWithoutValidation("X-UIPATH-OrganizationUnitId", folderId)
-
-        Dim resp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(request).Result
-        If Not resp.IsSuccessStatusCode Then
-            hasMore = False
-            Continue Do
-        End If
-
-        Dim body As String = resp.Content.ReadAsStringAsync().Result
-        Dim obj As JObject = JObject.Parse(body)
-        Dim items As JArray = TryCast(obj("value"), JArray)
-
-        If items Is Nothing OrElse items.Count = 0 Then
-            hasMore = False
-        Else
-            For Each item As JObject In items
-                item("_SourceFolderId") = folderId
-                item("_SourceFolderName") = folderName
-                allItems.Add(item)
-            Next
-            skip += top
-            If items.Count &lt; top Then hasMore = False
-        End If
-    Loop
-Next
-
-Return allItems.ToString(Formatting.Indented)
+    <ForEach x:TypeArguments="nj:JToken" DisplayName="ForEach Folder" Values="[JArray.Parse(v_FoldersJson)]">
+      <ForEach.Body>
+        <ActivityAction x:TypeArguments="nj:JToken">
+          <ActivityAction.Argument>
+            <DelegateInArgument x:TypeArguments="nj:JToken" Name="folderToken" />
+          </ActivityAction.Argument>
+          <Sequence DisplayName="Process Folder">
+            <Assign DisplayName="Set FolderId">
+              <Assign.To><OutArgument x:TypeArguments="x:String">[v_FolderId]</OutArgument></Assign.To>
+              <Assign.Value><InArgument x:TypeArguments="x:String">[folderToken("Id").ToString()]</InArgument></Assign.Value>
+            </Assign>
+            <Assign DisplayName="Set FolderName">
+              <Assign.To><OutArgument x:TypeArguments="x:String">[v_FolderName]</OutArgument></Assign.To>
+              <Assign.Value><InArgument x:TypeArguments="x:String">[If(folderToken("FullyQualifiedName") IsNot Nothing AndAlso folderToken("FullyQualifiedName").Type &lt;> JTokenType.Null, folderToken("FullyQualifiedName").ToString(), folderToken("DisplayName").ToString())]</InArgument></Assign.Value>
+            </Assign>
+            <Assign DisplayName="Reset Skip">
+              <Assign.To><OutArgument x:TypeArguments="x:Int32">[v_Skip]</OutArgument></Assign.To>
+              <Assign.Value><InArgument x:TypeArguments="x:Int32">0</InArgument></Assign.Value>
+            </Assign>
+            <Assign DisplayName="Reset HasMore">
+              <Assign.To><OutArgument x:TypeArguments="x:Boolean">[v_HasMore]</OutArgument></Assign.To>
+              <Assign.Value><InArgument x:TypeArguments="x:Boolean">True</InArgument></Assign.Value>
+            </Assign>
+            <While DisplayName="Pagination Loop">
+              <While.Condition>[v_HasMore]</While.Condition>
+              <Sequence DisplayName="Fetch One Page">
+                <ui:OrchestratorHttpRequest DisplayName="GET /odata/ProcessSchedules for folder" Method="GET">
+                  <ui:OrchestratorHttpRequest.Endpoint>
+                    <InArgument x:TypeArguments="x:String">["/odata/ProcessSchedules?$top=100&amp;$skip=" &amp; v_Skip.ToString()]</InArgument>
+                  </ui:OrchestratorHttpRequest.Endpoint>
+                  <ui:OrchestratorHttpRequest.OrganizationUnitId>
+                    <InArgument x:TypeArguments="x:Int64">[CLng(v_FolderId)]</InArgument>
+                  </ui:OrchestratorHttpRequest.OrganizationUnitId>
+                  <ui:OrchestratorHttpRequest.Response>
+                    <OutArgument x:TypeArguments="x:String">[v_PageResponse]</OutArgument>
+                  </ui:OrchestratorHttpRequest.Response>
+                  <ui:OrchestratorHttpRequest.StatusCode>
+                    <OutArgument x:TypeArguments="x:Int32">[v_StatusCode]</OutArgument>
+                  </ui:OrchestratorHttpRequest.StatusCode>
+                </ui:OrchestratorHttpRequest>
+                <Assign DisplayName="Count page items">
+                  <Assign.To><OutArgument x:TypeArguments="x:Int32">[v_PageCount]</OutArgument></Assign.To>
+                  <Assign.Value><InArgument x:TypeArguments="x:Int32">[If(JObject.Parse(v_PageResponse)("value") IsNot Nothing, DirectCast(JObject.Parse(v_PageResponse)("value"), JArray).Count, 0)]</InArgument></Assign.Value>
+                </Assign>
+                <Assign DisplayName="Merge items with folder metadata">
+                  <Assign.To><OutArgument x:TypeArguments="x:String">[v_AllItemsJson]</OutArgument></Assign.To>
+                  <Assign.Value>
+                    <InArgument x:TypeArguments="x:String">(Function()
+    Dim allItems As JArray = JArray.Parse(v_AllItemsJson)
+    Dim obj As JObject = JObject.Parse(v_PageResponse)
+    Dim pageItems As JArray = TryCast(obj("value"), JArray)
+    If pageItems IsNot Nothing Then
+        For Each item As JObject In pageItems
+            item("_SourceFolderId") = v_FolderId
+            item("_SourceFolderName") = v_FolderName
+            allItems.Add(item)
+        Next
+    End If
+    Return allItems.ToString()
 End Function)()</InArgument>
-      </Assign.Value>
-    </Assign>
+                  </Assign.Value>
+                </Assign>
+                <Assign DisplayName="Advance skip">
+                  <Assign.To><OutArgument x:TypeArguments="x:Int32">[v_Skip]</OutArgument></Assign.To>
+                  <Assign.Value><InArgument x:TypeArguments="x:Int32">[v_Skip + 100]</InArgument></Assign.Value>
+                </Assign>
+                <Assign DisplayName="Set HasMore">
+                  <Assign.To><OutArgument x:TypeArguments="x:Boolean">[v_HasMore]</OutArgument></Assign.To>
+                  <Assign.Value><InArgument x:TypeArguments="x:Boolean">[v_PageCount = 100]</InArgument></Assign.Value>
+                </Assign>
+              </Sequence>
+            </While>
+          </Sequence>
+        </ActivityAction>
+      </ForEach.Body>
+    </ForEach>
 
     <Assign DisplayName="Set Output Path">
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_OutputPath]</OutArgument></Assign.To>
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Export_Triggers.json")]</InArgument></Assign.Value>
     </Assign>
-
     <Assign DisplayName="Save Export_Triggers.json">
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
       <Assign.Value>
         <InArgument x:TypeArguments="x:String">(Function()
-    System.IO.File.WriteAllText(v_OutputPath, v_AllTriggersJson, System.Text.Encoding.UTF8)
+    System.IO.File.WriteAllText(v_OutputPath, JArray.Parse(v_AllItemsJson).ToString(Formatting.Indented), System.Text.Encoding.UTF8)
     Return ""
 End Function)()</InArgument>
       </Assign.Value>
     </Assign>
-
-    <ui:LogMessage Level="Info" Message="[&quot;[Export Triggers] Saved &quot; &amp; Newtonsoft.Json.Linq.JArray.Parse(v_AllTriggersJson).Count.ToString() &amp; &quot; triggers to &quot; &amp; v_OutputPath]" DisplayName="Log: Complete" />
+    <ui:LogMessage Level="Info" Message="[&quot;[Export Triggers] Saved &quot; &amp; JArray.Parse(v_AllItemsJson).Count.ToString() &amp; &quot; triggers to &quot; &amp; v_OutputPath]" DisplayName="Log: Complete" />
   </Sequence>
 </Activity>

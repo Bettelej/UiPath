@@ -1,4 +1,4 @@
-<Activity mc:Ignorable="sap sap2010" x:Class="Main" VisualBasic.Settings="{x:Null}" sap2010:WorkflowViewState.IdRef="ActivityBuilder_1"
+<Activity mc:Ignorable="sap sap2010" x:Class="Main_Import" VisualBasic.Settings="{x:Null}" sap2010:WorkflowViewState.IdRef="ActivityBuilder_1"
   xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
@@ -27,7 +27,7 @@
       <AssemblyReference>UiPath.System.Activities</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
-  <Sequence DisplayName="Main - Export Phase (connected to SOURCE Orchestrator)" sap2010:WorkflowViewState.IdRef="Sequence_1">
+  <Sequence DisplayName="Main - Import Phase (connected to TARGET Orchestrator)" sap2010:WorkflowViewState.IdRef="Sequence_1">
     <sap:WorkflowViewStateService.ViewState>
       <scg:Dictionary x:TypeArguments="x:String, x:Object">
         <x:Boolean x:Key="IsExpanded">True</x:Boolean>
@@ -36,13 +36,12 @@
     <Sequence.Variables>
       <Variable x:TypeArguments="x:String" Name="v_ConfigJson" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_DataPath" Default="&quot;Data&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_Dummy" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_ErrorMessage" Default="&quot;&quot;" />
     </Sequence.Variables>
-    <TryCatch DisplayName="Export TryCatch">
+    <TryCatch DisplayName="Import TryCatch">
       <TryCatch.Try>
-        <Sequence DisplayName="Export Steps">
-          <ui:LogMessage Level="Info" Message="[&quot;[Export] Starting EXPORT phase. This robot must be connected to the SOURCE Orchestrator.&quot;]" DisplayName="Log: Start" />
+        <Sequence DisplayName="Import Steps">
+          <ui:LogMessage Level="Info" Message="[&quot;[Import] Starting IMPORT phase. This robot must be connected to the TARGET Orchestrator.&quot;]" DisplayName="Log: Start" />
           <Assign DisplayName="Read MigrationConfig.json">
             <Assign.To><OutArgument x:TypeArguments="x:String">[v_ConfigJson]</OutArgument></Assign.To>
             <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText("MigrationConfig.json")]</InArgument></Assign.Value>
@@ -51,90 +50,78 @@
             <Assign.To><OutArgument x:TypeArguments="x:String">[v_DataPath]</OutArgument></Assign.To>
             <Assign.Value><InArgument x:TypeArguments="x:String">[JObject.Parse(v_ConfigJson)("DataPath").ToString()]</InArgument></Assign.Value>
           </Assign>
-          <Assign DisplayName="Create DataPath directory">
-            <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
-            <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Directory.CreateDirectory(v_DataPath).FullName]</InArgument></Assign.Value>
-          </Assign>
-          <Assign DisplayName="Create Packages subdirectory">
-            <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
-            <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Directory.CreateDirectory(System.IO.Path.Combine(v_DataPath, "Packages")).FullName]</InArgument></Assign.Value>
-          </Assign>
-          <Assign DisplayName="Create Libraries subdirectory">
-            <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
-            <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Directory.CreateDirectory(System.IO.Path.Combine(v_DataPath, "Libraries")).FullName]</InArgument></Assign.Value>
-          </Assign>
-          <ui:InvokeWorkflowFile WorkflowFileName="Export_Folders.xaml" DisplayName="Step 1 - Export Folders">
+          <ui:InvokeWorkflowFile WorkflowFileName="Import_Folders.xaml" DisplayName="Step 1 - Import Folders">
             <ui:InvokeWorkflowFile.Arguments>
               <scg:Dictionary x:TypeArguments="x:String, Argument">
                 <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
               </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
-          <ui:InvokeWorkflowFile WorkflowFileName="Export_Environments.xaml" DisplayName="Step 2 - Export Environments">
+          <ui:InvokeWorkflowFile WorkflowFileName="Import_Environments.xaml" DisplayName="Step 2 - Import Environments">
             <ui:InvokeWorkflowFile.Arguments>
               <scg:Dictionary x:TypeArguments="x:String, Argument">
                 <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
               </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
-          <ui:InvokeWorkflowFile WorkflowFileName="Export_Assets.xaml" DisplayName="Step 3 - Export Assets">
+          <ui:InvokeWorkflowFile WorkflowFileName="Import_Assets.xaml" DisplayName="Step 3 - Import Assets">
             <ui:InvokeWorkflowFile.Arguments>
               <scg:Dictionary x:TypeArguments="x:String, Argument">
                 <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
               </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
-          <ui:InvokeWorkflowFile WorkflowFileName="Export_Queues.xaml" DisplayName="Step 4 - Export Queues">
+          <ui:InvokeWorkflowFile WorkflowFileName="Import_Queues.xaml" DisplayName="Step 4 - Import Queues">
             <ui:InvokeWorkflowFile.Arguments>
               <scg:Dictionary x:TypeArguments="x:String, Argument">
                 <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
               </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
-          <ui:InvokeWorkflowFile WorkflowFileName="Export_Packages.xaml" DisplayName="Step 5 - Export Packages">
+          <ui:InvokeWorkflowFile WorkflowFileName="Import_Packages.xaml" DisplayName="Step 5 - Import Packages">
             <ui:InvokeWorkflowFile.Arguments>
               <scg:Dictionary x:TypeArguments="x:String, Argument">
                 <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
               </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
-          <ui:InvokeWorkflowFile WorkflowFileName="Export_Libraries.xaml" DisplayName="Step 6 - Export Libraries">
+          <ui:InvokeWorkflowFile WorkflowFileName="Import_Libraries.xaml" DisplayName="Step 6 - Import Libraries">
             <ui:InvokeWorkflowFile.Arguments>
               <scg:Dictionary x:TypeArguments="x:String, Argument">
                 <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
               </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
-          <ui:InvokeWorkflowFile WorkflowFileName="Export_Processes.xaml" DisplayName="Step 7 - Export Processes">
+          <ui:InvokeWorkflowFile WorkflowFileName="Import_Processes.xaml" DisplayName="Step 7 - Import Processes">
             <ui:InvokeWorkflowFile.Arguments>
               <scg:Dictionary x:TypeArguments="x:String, Argument">
                 <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
               </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
-          <ui:InvokeWorkflowFile WorkflowFileName="Export_Triggers.xaml" DisplayName="Step 8 - Export Triggers">
+          <ui:InvokeWorkflowFile WorkflowFileName="Import_Triggers.xaml" DisplayName="Step 8 - Import Triggers">
             <ui:InvokeWorkflowFile.Arguments>
               <scg:Dictionary x:TypeArguments="x:String, Argument">
                 <InArgument x:TypeArguments="x:String" x:Key="in_DataPath">[v_DataPath]</InArgument>
               </scg:Dictionary>
             </ui:InvokeWorkflowFile.Arguments>
           </ui:InvokeWorkflowFile>
-          <ui:LogMessage Level="Info" Message="[&quot;[Export] EXPORT phase complete! Data saved to: &quot; &amp; v_DataPath]" DisplayName="Log: Export Complete" />
-          <ui:LogMessage Level="Info" Message="[&quot;[Export] NEXT STEP: Reconnect robot to TARGET Orchestrator, then run Main_Import.xaml&quot;]" DisplayName="Log: Next Step" />
+          <ui:LogMessage Level="Info" Message="[&quot;[Import] IMPORT phase complete! Migration finished.&quot;]" DisplayName="Log: Import Complete" />
+          <ui:LogMessage Level="Info" Message="[&quot;[Import] IMPORTANT: Check CredentialReport_ManualAction.json and enable triggers manually.&quot;]" DisplayName="Log: Manual Steps" />
         </Sequence>
       </TryCatch.Try>
       <TryCatch.Catches>
         <Catch x:TypeArguments="x:Exception">
           <ActivityAction x:TypeArguments="x:Exception">
             <ActivityAction.Argument>
-              <DelegateInArgument x:TypeArguments="x:Exception" Name="exportEx" />
+              <DelegateInArgument x:TypeArguments="x:Exception" Name="importEx" />
             </ActivityAction.Argument>
-            <Sequence DisplayName="Handle Export Error">
+            <Sequence DisplayName="Handle Import Error">
               <Assign DisplayName="Set Error Message">
                 <Assign.To><OutArgument x:TypeArguments="x:String">[v_ErrorMessage]</OutArgument></Assign.To>
-                <Assign.Value><InArgument x:TypeArguments="x:String">[exportEx.Message]</InArgument></Assign.Value>
+                <Assign.Value><InArgument x:TypeArguments="x:String">[importEx.Message]</InArgument></Assign.Value>
               </Assign>
-              <ui:LogMessage Level="Error" Message="[&quot;[Export] FATAL ERROR: &quot; &amp; v_ErrorMessage]" DisplayName="Log: Fatal Error" />
+              <ui:LogMessage Level="Error" Message="[&quot;[Import] FATAL ERROR: &quot; &amp; v_ErrorMessage]" DisplayName="Log: Fatal Error" />
               <Rethrow />
             </Sequence>
           </ActivityAction>

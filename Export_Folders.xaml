@@ -28,50 +28,84 @@
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
   <x:Members>
-    <x:Property Name="in_SourceBaseUrl" Type="InArgument(x:String)" />
-    <x:Property Name="in_SourceToken" Type="InArgument(x:String)" />
     <x:Property Name="in_DataPath" Type="InArgument(x:String)" />
   </x:Members>
   <Sequence DisplayName="Export Step 1 - Folders">
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
     <Sequence.Variables>
-      <Variable x:TypeArguments="x:String" Name="v_ResponseJson" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_PageResponse" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:Int32" Name="v_StatusCode" Default="0" />
+      <Variable x:TypeArguments="x:Int32" Name="v_Skip" Default="0" />
+      <Variable x:TypeArguments="x:Boolean" Name="v_HasMore" Default="True" />
+      <Variable x:TypeArguments="x:String" Name="v_AllItemsJson" Default="&quot;[]&quot;" />
+      <Variable x:TypeArguments="x:Int32" Name="v_PageCount" Default="0" />
       <Variable x:TypeArguments="x:String" Name="v_OutputPath" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_Dummy" Default="&quot;&quot;" />
     </Sequence.Variables>
 
     <ui:LogMessage Level="Info" Message="[&quot;[Export Folders] Fetching all folders from source Orchestrator...&quot;]" DisplayName="Log: Start" />
 
-    <ui:InvokeWorkflowFile WorkflowFileName="Shared_OrchestratorApiCall.xaml" DisplayName="GET /odata/Folders">
-      <ui:InvokeWorkflowFile.Arguments>
-        <scg:Dictionary x:TypeArguments="x:String, Argument">
-          <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[in_SourceBaseUrl]</InArgument>
-          <InArgument x:TypeArguments="x:String" x:Key="in_Token">[in_SourceToken]</InArgument>
-          <InArgument x:TypeArguments="x:String" x:Key="in_Endpoint">"/odata/Folders?$orderby=ParentId asc"</InArgument>
-          <InArgument x:TypeArguments="x:String" x:Key="in_Method">"GET"</InArgument>
-          <InArgument x:TypeArguments="x:String" x:Key="in_FolderId">""</InArgument>
-          <InArgument x:TypeArguments="x:String" x:Key="in_RequestBody">""</InArgument>
-          <OutArgument x:TypeArguments="x:String" x:Key="out_ResponseJson">[v_ResponseJson]</OutArgument>
-          <OutArgument x:TypeArguments="x:Int32" x:Key="out_StatusCode">[v_StatusCode]</OutArgument>
-        </scg:Dictionary>
-      </ui:InvokeWorkflowFile.Arguments>
-    </ui:InvokeWorkflowFile>
+    <While DisplayName="Pagination Loop">
+      <While.Condition>[v_HasMore]</While.Condition>
+      <Sequence DisplayName="Fetch One Page">
+        <ui:OrchestratorHttpRequest DisplayName="GET /odata/Folders?$orderby=ParentId asc" Method="GET">
+          <ui:OrchestratorHttpRequest.Endpoint>
+            <InArgument x:TypeArguments="x:String">["/odata/Folders?$orderby=ParentId asc" &amp; If('/odata/Folders?$orderby=ParentId asc'.Contains("?"), "&amp;", "?") &amp; "$top=100&amp;$skip=" &amp; v_Skip.ToString()]</InArgument>
+          </ui:OrchestratorHttpRequest.Endpoint>
+          <ui:OrchestratorHttpRequest.Response>
+            <OutArgument x:TypeArguments="x:String">[v_PageResponse]</OutArgument>
+          </ui:OrchestratorHttpRequest.Response>
+          <ui:OrchestratorHttpRequest.StatusCode>
+            <OutArgument x:TypeArguments="x:Int32">[v_StatusCode]</OutArgument>
+          </ui:OrchestratorHttpRequest.StatusCode>
+        </ui:OrchestratorHttpRequest>
+        <Assign DisplayName="Count page items">
+          <Assign.To><OutArgument x:TypeArguments="x:Int32">[v_PageCount]</OutArgument></Assign.To>
+          <Assign.Value><InArgument x:TypeArguments="x:Int32">[If(JObject.Parse(v_PageResponse)("value") IsNot Nothing, DirectCast(JObject.Parse(v_PageResponse)("value"), JArray).Count, 0)]</InArgument></Assign.Value>
+        </Assign>
+        <Assign DisplayName="Merge items into accumulator">
+          <Assign.To><OutArgument x:TypeArguments="x:String">[v_AllItemsJson]</OutArgument></Assign.To>
+          <Assign.Value>
+            <InArgument x:TypeArguments="x:String">(Function()
+    Dim existing As JArray = JArray.Parse(v_AllItemsJson)
+    Dim pageItems As JToken = JObject.Parse(v_PageResponse)("value")
+    If pageItems IsNot Nothing Then
+        For Each item As JToken In DirectCast(pageItems, JArray)
+            existing.Add(item)
+        Next
+    End If
+    Return existing.ToString()
+End Function)()</InArgument>
+          </Assign.Value>
+        </Assign>
+        <Assign DisplayName="Advance skip">
+          <Assign.To><OutArgument x:TypeArguments="x:Int32">[v_Skip]</OutArgument></Assign.To>
+          <Assign.Value><InArgument x:TypeArguments="x:Int32">[v_Skip + 100]</InArgument></Assign.Value>
+        </Assign>
+        <Assign DisplayName="Set HasMore">
+          <Assign.To><OutArgument x:TypeArguments="x:Boolean">[v_HasMore]</OutArgument></Assign.To>
+          <Assign.Value><InArgument x:TypeArguments="x:Boolean">[v_PageCount = 100]</InArgument></Assign.Value>
+        </Assign>
+      </Sequence>
+    </While>
 
     <Assign DisplayName="Set Output Path">
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_OutputPath]</OutArgument></Assign.To>
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "Export_Folders.json")]</InArgument></Assign.Value>
     </Assign>
-
     <Assign DisplayName="Save Export_Folders.json">
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
       <Assign.Value>
         <InArgument x:TypeArguments="x:String">(Function()
-    System.IO.File.WriteAllText(v_OutputPath, JArray.Parse(v_ResponseJson).ToString(Formatting.Indented), System.Text.Encoding.UTF8)
+    System.IO.File.WriteAllText(v_OutputPath, JArray.Parse(v_AllItemsJson).ToString(Formatting.Indented), System.Text.Encoding.UTF8)
     Return ""
 End Function)()</InArgument>
       </Assign.Value>
     </Assign>
-
-    <ui:LogMessage Level="Info" Message="[&quot;[Export Folders] Saved &quot; &amp; Newtonsoft.Json.Linq.JArray.Parse(v_ResponseJson).Count.ToString() &amp; &quot; folders to &quot; &amp; v_OutputPath]" DisplayName="Log: Complete" />
+    <ui:LogMessage Level="Info" Message="[&quot;[Export Folders] Saved &quot; &amp; JArray.Parse(v_AllItemsJson).Count.ToString() &amp; &quot; folders to &quot; &amp; v_OutputPath]" DisplayName="Log: Complete" />
   </Sequence>
 </Activity>

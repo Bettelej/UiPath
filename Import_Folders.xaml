@@ -5,6 +5,7 @@
   xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
   xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"
   xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib"
+  xmlns:nj="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json"
   xmlns:ui="http://schemas.uipath.com/workflow/activities"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <TextExpression.NamespacesForImplementation>
@@ -12,7 +13,6 @@
       <x:String>System</x:String>
       <x:String>System.IO</x:String>
       <x:String>System.Text</x:String>
-      <x:String>System.Net.Http</x:String>
       <x:String>System.Collections.Generic</x:String>
       <x:String>Newtonsoft.Json</x:String>
       <x:String>Newtonsoft.Json.Linq</x:String>
@@ -24,23 +24,36 @@
       <AssemblyReference>mscorlib</AssemblyReference>
       <AssemblyReference>System</AssemblyReference>
       <AssemblyReference>System.Core</AssemblyReference>
-      <AssemblyReference>System.Net.Http</AssemblyReference>
       <AssemblyReference>Newtonsoft.Json</AssemblyReference>
       <AssemblyReference>UiPath.System.Activities</AssemblyReference>
-      <AssemblyReference>System.Private.Uri</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
   <x:Members>
-    <x:Property Name="in_TargetBaseUrl" Type="InArgument(x:String)" />
-    <x:Property Name="in_TargetToken" Type="InArgument(x:String)" />
     <x:Property Name="in_DataPath" Type="InArgument(x:String)" />
-    <x:Property Name="in_ConfigJson" Type="InArgument(x:String)" />
   </x:Members>
   <Sequence DisplayName="Import Step 1 - Folders (Classic to Modern)">
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
     <Sequence.Variables>
       <Variable x:TypeArguments="x:String" Name="v_FoldersJson" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_ConfigJson" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_PageResponse" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:Int32" Name="v_StatusCode" Default="0" />
+      <Variable x:TypeArguments="x:Int32" Name="v_Skip" Default="0" />
+      <Variable x:TypeArguments="x:Boolean" Name="v_HasMore" Default="True" />
+      <Variable x:TypeArguments="x:Int32" Name="v_PageCount" Default="0" />
+      <Variable x:TypeArguments="x:String" Name="v_ExistingFoldersObj" Default="&quot;{}&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_IdMappingJson" Default="&quot;{}&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_OldId" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_DisplayName" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_TargetName" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_NewId" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_PostBody" Default="&quot;&quot;" />
+      <Variable x:TypeArguments="x:String" Name="v_PostResponse" Default="&quot;&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_MappingPath" Default="&quot;&quot;" />
-      <Variable x:TypeArguments="x:String" Name="v_FolderMappingJson" Default="&quot;{}&quot;" />
       <Variable x:TypeArguments="x:String" Name="v_Dummy" Default="&quot;&quot;" />
     </Sequence.Variables>
 
@@ -50,116 +63,193 @@
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_FoldersJson]</OutArgument></Assign.To>
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText(System.IO.Path.Combine(in_DataPath, "Export_Folders.json"), System.Text.Encoding.UTF8)]</InArgument></Assign.Value>
     </Assign>
-
+    <Assign DisplayName="Read MigrationConfig.json">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[v_ConfigJson]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.File.ReadAllText("MigrationConfig.json")]</InArgument></Assign.Value>
+    </Assign>
     <Assign DisplayName="Set Mapping Path">
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_MappingPath]</OutArgument></Assign.To>
       <Assign.Value><InArgument x:TypeArguments="x:String">[System.IO.Path.Combine(in_DataPath, "FolderIdMapping.json")]</InArgument></Assign.Value>
     </Assign>
 
-    <Assign DisplayName="Create Modern Folders and Build Mapping">
-      <Assign.To><OutArgument x:TypeArguments="x:String">[v_FolderMappingJson]</OutArgument></Assign.To>
-      <Assign.Value>
-        <InArgument x:TypeArguments="x:String">(Function()
-    Dim srcFolders As JArray = JArray.Parse(v_FoldersJson)
-    Dim config As JObject = JObject.Parse(in_ConfigJson)
-    Dim folderMappings As JObject = TryCast(config("FolderMappings"), JObject)
-    Dim idMapping As New JObject()
-
-    Dim httpClient As New System.Net.Http.HttpClient()
-    httpClient.Timeout = TimeSpan.FromSeconds(60)
-
-    Dim existingFolders As New System.Collections.Generic.Dictionary(Of String, String)(StringComparer.OrdinalIgnoreCase)
-
-    Dim skip As Integer = 0
-    Dim top As Integer = 100
-    Dim hasMore As Boolean = True
-
-    Do While hasMore
-        Dim listUrl As String = in_TargetBaseUrl.TrimEnd("/"c) &amp;
-            "/odata/Folders?$top=" &amp; top &amp; "&amp;$skip=" &amp; skip
-        Dim listReq As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, listUrl)
-        listReq.Headers.TryAddWithoutValidation("Authorization", "Bearer " &amp; in_TargetToken)
-        listReq.Headers.TryAddWithoutValidation("Accept", "application/json")
-        Dim listResp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(listReq).Result
-        Dim listBody As String = listResp.Content.ReadAsStringAsync().Result
-        Dim listObj As JObject = JObject.Parse(listBody)
-        Dim listItems As JArray = TryCast(listObj("value"), JArray)
-        If listItems Is Nothing OrElse listItems.Count = 0 Then
-            hasMore = False
-        Else
-            For Each ef As JObject In listItems
-                Dim efName As String = ef("DisplayName").ToString()
-                Dim efId As String = ef("Id").ToString()
-                If Not existingFolders.ContainsKey(efName) Then
-                    existingFolders(efName) = efId
-                End If
-            Next
-            skip += top
-            If listItems.Count &lt; top Then hasMore = False
-        End If
-    Loop
-
-    For Each srcFolder As JObject In srcFolders
-        Dim oldId As String = srcFolder("Id").ToString()
-        Dim displayName As String = srcFolder("DisplayName").ToString()
-
-        Dim targetName As String = displayName
-        If folderMappings IsNot Nothing AndAlso folderMappings(displayName) IsNot Nothing Then
-            targetName = folderMappings(displayName).ToString()
-        End If
-
-        If existingFolders.ContainsKey(targetName) Then
-            idMapping(oldId) = existingFolders(targetName)
-            Console.WriteLine("[Import Folders] Skipping existing folder: " &amp; targetName)
-            Continue For
-        End If
-
-        Dim body As New JObject()
-        body("DisplayName") = targetName
-        body("FullyQualifiedName") = targetName
-        body("Description") = If(srcFolder("Description") IsNot Nothing AndAlso
-            srcFolder("Description").Type &lt;> JTokenType.Null,
-            srcFolder("Description").ToString(), "")
-        body("ProvisionType") = "Modern"
-        body("PermissionModel") = "FineGrained"
-        body("FeedType") = "FolderLevel"
-
-        Dim postUrl As String = in_TargetBaseUrl.TrimEnd("/"c) &amp; "/odata/Folders"
-        Dim postReq As New System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, postUrl)
-        postReq.Headers.TryAddWithoutValidation("Authorization", "Bearer " &amp; in_TargetToken)
-        postReq.Headers.TryAddWithoutValidation("Accept", "application/json")
-        postReq.Content = New System.Net.Http.StringContent(body.ToString(), System.Text.Encoding.UTF8, "application/json")
-
-        Dim postResp As System.Net.Http.HttpResponseMessage = httpClient.SendAsync(postReq).Result
-        Dim postBody As String = postResp.Content.ReadAsStringAsync().Result
-
-        If postResp.IsSuccessStatusCode Then
-            Dim newFolder As JObject = JObject.Parse(postBody)
-            Dim newId As String = newFolder("Id").ToString()
-            idMapping(oldId) = newId
-            existingFolders(targetName) = newId
-            Console.WriteLine("[Import Folders] Created folder: " &amp; targetName &amp; " (old=" &amp; oldId &amp; " new=" &amp; newId &amp; ")")
-        Else
-            Console.WriteLine("[Import Folders] WARNING: Failed to create folder '" &amp;
-                targetName &amp; "': HTTP " &amp; CInt(postResp.StatusCode).ToString() &amp; " - " &amp; postBody)
-        End If
-    Next
-
-    Return idMapping.ToString(Formatting.Indented)
+    <While DisplayName="Fetch Existing Target Folders">
+      <While.Condition>[v_HasMore]</While.Condition>
+      <Sequence DisplayName="Fetch One Page">
+        <ui:OrchestratorHttpRequest DisplayName="GET /odata/Folders" Method="GET">
+          <ui:OrchestratorHttpRequest.Endpoint>
+            <InArgument x:TypeArguments="x:String">["/odata/Folders?$top=100&amp;$skip=" &amp; v_Skip.ToString()]</InArgument>
+          </ui:OrchestratorHttpRequest.Endpoint>
+          <ui:OrchestratorHttpRequest.Response>
+            <OutArgument x:TypeArguments="x:String">[v_PageResponse]</OutArgument>
+          </ui:OrchestratorHttpRequest.Response>
+          <ui:OrchestratorHttpRequest.StatusCode>
+            <OutArgument x:TypeArguments="x:Int32">[v_StatusCode]</OutArgument>
+          </ui:OrchestratorHttpRequest.StatusCode>
+        </ui:OrchestratorHttpRequest>
+        <Assign DisplayName="Count page items">
+          <Assign.To><OutArgument x:TypeArguments="x:Int32">[v_PageCount]</OutArgument></Assign.To>
+          <Assign.Value><InArgument x:TypeArguments="x:Int32">[If(JObject.Parse(v_PageResponse)("value") IsNot Nothing, DirectCast(JObject.Parse(v_PageResponse)("value"), JArray).Count, 0)]</InArgument></Assign.Value>
+        </Assign>
+        <Assign DisplayName="Merge into existing folders dict">
+          <Assign.To><OutArgument x:TypeArguments="x:String">[v_ExistingFoldersObj]</OutArgument></Assign.To>
+          <Assign.Value>
+            <InArgument x:TypeArguments="x:String">(Function()
+    Dim dict As JObject = JObject.Parse(v_ExistingFoldersObj)
+    Dim pageItems As JArray = TryCast(JObject.Parse(v_PageResponse)("value"), JArray)
+    If pageItems IsNot Nothing Then
+        For Each f As JObject In pageItems
+            Dim fName As String = f("DisplayName").ToString()
+            Dim fId As String = f("Id").ToString()
+            If dict(fName) Is Nothing Then dict(fName) = fId
+        Next
+    End If
+    Return dict.ToString()
 End Function)()</InArgument>
-      </Assign.Value>
-    </Assign>
+          </Assign.Value>
+        </Assign>
+        <Assign DisplayName="Advance skip">
+          <Assign.To><OutArgument x:TypeArguments="x:Int32">[v_Skip]</OutArgument></Assign.To>
+          <Assign.Value><InArgument x:TypeArguments="x:Int32">[v_Skip + 100]</InArgument></Assign.Value>
+        </Assign>
+        <Assign DisplayName="Set HasMore">
+          <Assign.To><OutArgument x:TypeArguments="x:Boolean">[v_HasMore]</OutArgument></Assign.To>
+          <Assign.Value><InArgument x:TypeArguments="x:Boolean">[v_PageCount = 100]</InArgument></Assign.Value>
+        </Assign>
+      </Sequence>
+    </While>
+
+    <ForEach x:TypeArguments="nj:JToken" DisplayName="ForEach Source Folder" Values="[JArray.Parse(v_FoldersJson)]">
+      <ForEach.Body>
+        <ActivityAction x:TypeArguments="nj:JToken">
+          <ActivityAction.Argument>
+            <DelegateInArgument x:TypeArguments="nj:JToken" Name="srcFolder" />
+          </ActivityAction.Argument>
+          <Sequence DisplayName="Process Source Folder">
+            <Assign DisplayName="Set OldId">
+              <Assign.To><OutArgument x:TypeArguments="x:String">[v_OldId]</OutArgument></Assign.To>
+              <Assign.Value><InArgument x:TypeArguments="x:String">[srcFolder("Id").ToString()]</InArgument></Assign.Value>
+            </Assign>
+            <Assign DisplayName="Set DisplayName">
+              <Assign.To><OutArgument x:TypeArguments="x:String">[v_DisplayName]</OutArgument></Assign.To>
+              <Assign.Value><InArgument x:TypeArguments="x:String">[srcFolder("DisplayName").ToString()]</InArgument></Assign.Value>
+            </Assign>
+            <Assign DisplayName="Compute TargetName (with mapping)">
+              <Assign.To><OutArgument x:TypeArguments="x:String">[v_TargetName]</OutArgument></Assign.To>
+              <Assign.Value>
+                <InArgument x:TypeArguments="x:String">(Function()
+    Dim cfg As JObject = JObject.Parse(v_ConfigJson)
+    Dim mappings As JObject = TryCast(cfg("FolderMappings"), JObject)
+    If mappings IsNot Nothing AndAlso mappings(v_DisplayName) IsNot Nothing Then
+        Return mappings(v_DisplayName).ToString()
+    End If
+    Return v_DisplayName
+End Function)()</InArgument>
+              </Assign.Value>
+            </Assign>
+            <If DisplayName="If folder already exists in target">
+              <If.Condition>[JObject.Parse(v_ExistingFoldersObj)(v_TargetName) IsNot Nothing]</If.Condition>
+              <If.Then>
+                <Sequence DisplayName="Use existing folder">
+                  <Assign DisplayName="Get existing NewId">
+                    <Assign.To><OutArgument x:TypeArguments="x:String">[v_NewId]</OutArgument></Assign.To>
+                    <Assign.Value><InArgument x:TypeArguments="x:String">[JObject.Parse(v_ExistingFoldersObj)(v_TargetName).ToString()]</InArgument></Assign.Value>
+                  </Assign>
+                  <Assign DisplayName="Add to IdMapping (existing)">
+                    <Assign.To><OutArgument x:TypeArguments="x:String">[v_IdMappingJson]</OutArgument></Assign.To>
+                    <Assign.Value>
+                      <InArgument x:TypeArguments="x:String">(Function()
+    Dim m As JObject = JObject.Parse(v_IdMappingJson)
+    m(v_OldId) = v_NewId
+    Return m.ToString()
+End Function)()</InArgument>
+                    </Assign.Value>
+                  </Assign>
+                  <ui:LogMessage Level="Info" Message="[&quot;[Import Folders] Skipping existing folder: &quot; &amp; v_TargetName &amp; &quot; (mapped &quot; &amp; v_OldId &amp; &quot; -&gt; &quot; &amp; v_NewId &amp; &quot;)&quot;]" DisplayName="Log: Folder Exists" />
+                </Sequence>
+              </If.Then>
+              <If.Else>
+                <Sequence DisplayName="Create new folder">
+                  <Assign DisplayName="Build POST body">
+                    <Assign.To><OutArgument x:TypeArguments="x:String">[v_PostBody]</OutArgument></Assign.To>
+                    <Assign.Value>
+                      <InArgument x:TypeArguments="x:String">(Function()
+    Dim body As New JObject()
+    body("DisplayName") = v_TargetName
+    body("FullyQualifiedName") = v_TargetName
+    body("Description") = If(srcFolder("Description") IsNot Nothing AndAlso srcFolder("Description").Type &lt;> JTokenType.Null, srcFolder("Description").ToString(), "")
+    body("ProvisionType") = "Modern"
+    body("PermissionModel") = "FineGrained"
+    body("FeedType") = "FolderLevel"
+    Return body.ToString()
+End Function)()</InArgument>
+                    </Assign.Value>
+                  </Assign>
+                  <ui:OrchestratorHttpRequest DisplayName="POST /odata/Folders" Method="POST">
+                    <ui:OrchestratorHttpRequest.Endpoint>
+                      <InArgument x:TypeArguments="x:String">"/odata/Folders"</InArgument>
+                    </ui:OrchestratorHttpRequest.Endpoint>
+                    <ui:OrchestratorHttpRequest.Body>
+                      <InArgument x:TypeArguments="x:String">[v_PostBody]</InArgument>
+                    </ui:OrchestratorHttpRequest.Body>
+                    <ui:OrchestratorHttpRequest.Response>
+                      <OutArgument x:TypeArguments="x:String">[v_PostResponse]</OutArgument>
+                    </ui:OrchestratorHttpRequest.Response>
+                    <ui:OrchestratorHttpRequest.StatusCode>
+                      <OutArgument x:TypeArguments="x:Int32">[v_StatusCode]</OutArgument>
+                    </ui:OrchestratorHttpRequest.StatusCode>
+                  </ui:OrchestratorHttpRequest>
+                  <If DisplayName="If POST succeeded">
+                    <If.Condition>[v_StatusCode &gt;= 200 AndAlso v_StatusCode &lt; 300]</If.Condition>
+                    <If.Then>
+                      <Sequence DisplayName="Record new folder">
+                        <Assign DisplayName="Extract NewId">
+                          <Assign.To><OutArgument x:TypeArguments="x:String">[v_NewId]</OutArgument></Assign.To>
+                          <Assign.Value><InArgument x:TypeArguments="x:String">[JObject.Parse(v_PostResponse)("Id").ToString()]</InArgument></Assign.Value>
+                        </Assign>
+                        <Assign DisplayName="Add to IdMapping">
+                          <Assign.To><OutArgument x:TypeArguments="x:String">[v_IdMappingJson]</OutArgument></Assign.To>
+                          <Assign.Value>
+                            <InArgument x:TypeArguments="x:String">(Function()
+    Dim m As JObject = JObject.Parse(v_IdMappingJson)
+    m(v_OldId) = v_NewId
+    Return m.ToString()
+End Function)()</InArgument>
+                          </Assign.Value>
+                        </Assign>
+                        <Assign DisplayName="Add to ExistingFolders">
+                          <Assign.To><OutArgument x:TypeArguments="x:String">[v_ExistingFoldersObj]</OutArgument></Assign.To>
+                          <Assign.Value>
+                            <InArgument x:TypeArguments="x:String">(Function()
+    Dim obj As JObject = JObject.Parse(v_ExistingFoldersObj)
+    obj(v_TargetName) = v_NewId
+    Return obj.ToString()
+End Function)()</InArgument>
+                          </Assign.Value>
+                        </Assign>
+                        <ui:LogMessage Level="Info" Message="[&quot;[Import Folders] Created: &quot; &amp; v_TargetName &amp; &quot; (old=&quot; &amp; v_OldId &amp; &quot; new=&quot; &amp; v_NewId &amp; &quot;)&quot;]" DisplayName="Log: Folder Created" />
+                      </Sequence>
+                    </If.Then>
+                    <If.Else>
+                      <ui:LogMessage Level="Warn" Message="[&quot;[Import Folders] WARNING: Failed to create folder '&quot; &amp; v_TargetName &amp; &quot;': HTTP &quot; &amp; v_StatusCode.ToString() &amp; &quot; - &quot; &amp; v_PostResponse]" DisplayName="Log: Folder Failed" />
+                    </If.Else>
+                  </If>
+                </Sequence>
+              </If.Else>
+            </If>
+          </Sequence>
+        </ActivityAction>
+      </ForEach.Body>
+    </ForEach>
 
     <Assign DisplayName="Save FolderIdMapping.json">
       <Assign.To><OutArgument x:TypeArguments="x:String">[v_Dummy]</OutArgument></Assign.To>
       <Assign.Value>
         <InArgument x:TypeArguments="x:String">(Function()
-    System.IO.File.WriteAllText(v_MappingPath, v_FolderMappingJson, System.Text.Encoding.UTF8)
+    System.IO.File.WriteAllText(v_MappingPath, JObject.Parse(v_IdMappingJson).ToString(Formatting.Indented), System.Text.Encoding.UTF8)
     Return ""
 End Function)()</InArgument>
       </Assign.Value>
     </Assign>
-
     <ui:LogMessage Level="Info" Message="[&quot;[Import Folders] FolderIdMapping.json saved to &quot; &amp; v_MappingPath]" DisplayName="Log: Complete" />
   </Sequence>
 </Activity>
